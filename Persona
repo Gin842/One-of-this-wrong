@@ -1,0 +1,183 @@
+
+-- ORIGINAL ANIME RPG - MAP PROTOTYPE
+-- Builds a lightweight test map automatically.
+
+local Workspace = game:GetService("Workspace")
+
+local oldMap = Workspace:FindFirstChild("RPGPrototypeMap")
+if oldMap then
+	oldMap:Destroy()
+end
+
+local map = Instance.new("Folder")
+map.Name = "RPGPrototypeMap"
+map.Parent = Workspace
+
+local function makePart(name, size, position, color, material)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Position = position
+	part.Anchored = true
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = map
+	return part
+end
+
+local function makeLabel(part, text)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "AreaLabel"
+	gui.Size = UDim2.fromOffset(220, 48)
+	gui.StudsOffset = Vector3.new(0, 5, 0)
+	gui.AlwaysOnTop = true
+	gui.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextStrokeTransparency = 0.35
+	label.Parent = gui
+end
+
+local purple = Color3.fromRGB(115, 75, 190)
+local dark = Color3.fromRGB(35, 35, 52)
+local blue = Color3.fromRGB(65, 145, 220)
+local green = Color3.fromRGB(75, 175, 125)
+local gold = Color3.fromRGB(235, 185, 75)
+local gray = Color3.fromRGB(100, 105, 120)
+
+-- Main ground
+makePart(
+	"WorldGround",
+	Vector3.new(260, 1, 260),
+	Vector3.new(0, -0.5, 0),
+	Color3.fromRGB(48, 53, 68),
+	Enum.Material.Slate
+)
+
+-- Central social hub
+local hub = makePart(
+	"CentralHub",
+	Vector3.new(70, 2, 70),
+	Vector3.new(0, 1, 0),
+	dark,
+	Enum.Material.Slate
+)
+makeLabel(hub, "THE NEXUS")
+
+-- Monster training area
+local monsterZone = makePart(
+	"MonsterTrainingZone",
+	Vector3.new(42, 1, 28),
+	Vector3.new(0, 2.5, -48),
+	purple
+)
+makeLabel(monsterZone, "MONSTER TRAINING")
+
+-- PvP arena, separate from the safe hub
+local pvp = makePart(
+	"PvPArena",
+	Vector3.new(42, 1, 28),
+	Vector3.new(0, 2.5, 48),
+	Color3.fromRGB(150, 65, 85)
+)
+makeLabel(pvp, "PVP ARENA")
+
+-- Simple boundary walls around the PvP arena
+makePart("PvPWallLeft", Vector3.new(1, 8, 28),
+	Vector3.new(-21.5, 6.5, 48), gray)
+makePart("PvPWallRight", Vector3.new(1, 8, 28),
+	Vector3.new(21.5, 6.5, 48), gray)
+makePart("PvPWallBack", Vector3.new(42, 8, 1),
+	Vector3.new(0, 6.5, 62.5), gray)
+makePart("PvPWallFront", Vector3.new(42, 8, 1),
+	Vector3.new(0, 6.5, 33.5), gray)
+
+-- Four prototype player plots
+local plots = {
+	{name = "PlayerPlot1", x = -65, z = -65},
+	{name = "PlayerPlot2", x = 65, z = -65},
+	{name = "PlayerPlot3", x = -65, z = 65},
+	{name = "PlayerPlot4", x = 65, z = 65},
+}
+
+for _, data in ipairs(plots) do
+	local plot = makePart(
+		data.name,
+		Vector3.new(38, 2, 38),
+		Vector3.new(data.x, 1, data.z),
+		green
+	)
+	makeLabel(plot, data.name)
+
+	-- Persona development station
+	local persona = makePart(
+		"PersonaStation",
+		Vector3.new(8, 2, 8),
+		Vector3.new(data.x - 9, 3, data.z - 7),
+		purple
+	)
+	makeLabel(persona, "POWER")
+
+	-- Weapon upgrade station
+	local weapon = makePart(
+		"WeaponStation",
+		Vector3.new(8, 2, 8),
+		Vector3.new(data.x + 9, 3, data.z - 7),
+		gold
+	)
+	makeLabel(weapon, "WEAPONS")
+
+	-- Personal plot entrance marker
+	makePart(
+		"PlotEntrance",
+		Vector3.new(12, 1, 4),
+		Vector3.new(data.x, 2.5, data.z + 15),
+		blue
+	)
+end
+
+-- Obby starting platform and 10 jumping platforms
+local start = makePart(
+	"ObbyStart",
+	Vector3.new(16, 2, 12),
+	Vector3.new(95, 2, -35),
+	blue
+)
+makeLabel(start, "OBBY START")
+
+for i = 1, 10 do
+	local x = 95 + ((i % 2 == 0) and 7 or -7)
+	local z = -35 - (i * 10)
+
+	local platform = makePart(
+		"ObbyPlatform" .. i,
+		Vector3.new(9, 1, 9),
+		Vector3.new(x, 3 + (i % 3), z),
+		(i % 2 == 0) and purple or blue
+	)
+
+	if i == 10 then
+		platform.Color = gold
+		makeLabel(platform, "REWARD")
+	end
+end
+
+-- Spawn point
+local spawn = Instance.new("SpawnLocation")
+spawn.Name = "RPGSpawn"
+spawn.Size = Vector3.new(8, 1, 8)
+spawn.Position = Vector3.new(0, 3, 0)
+spawn.Anchored = true
+spawn.Neutral = true
+spawn.Duration = 0
+spawn.Parent = map
+
+print("RPG Prototype Map created successfully!")
