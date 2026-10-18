@@ -1,0 +1,244 @@
+
+-- AWAKENING DEMO - SERVER
+-- Original lightweight anime RPG prototype
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local old = workspace:FindFirstChild("AwakeningDemo")
+if old then old:Destroy() end
+
+local map = Instance.new("Folder")
+map.Name = "AwakeningDemo"
+map.Parent = workspace
+
+local remote = ReplicatedStorage:FindFirstChild("AwakenPower")
+if not remote then
+	remote = Instance.new("RemoteEvent")
+	remote.Name = "AwakenPower"
+	remote.Parent = ReplicatedStorage
+end
+
+local purple = Color3.fromRGB(151, 75, 255)
+local cyan = Color3.fromRGB(70, 220, 255)
+local dark = Color3.fromRGB(25, 22, 42)
+
+local function part(name, size, cf, color, material, parent)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Anchored = true
+	p.CanCollide = true
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent or map
+	return p
+end
+
+local function label(adornee, text)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(250, 55)
+	gui.StudsOffset = Vector3.new(0, 5, 0)
+	gui.AlwaysOnTop = true
+	gui.Adornee = adornee
+	gui.Parent = adornee
+
+	local t = Instance.new("TextLabel")
+	t.Size = UDim2.fromScale(1, 1)
+	t.BackgroundTransparency = 1
+	t.Text = text
+	t.TextColor3 = Color3.new(1, 1, 1)
+	t.TextStrokeTransparency = 0.25
+	t.Font = Enum.Font.GothamBold
+	t.TextScaled = true
+	t.Parent = gui
+end
+
+-- Training arena
+part("ArenaFloor", Vector3.new(100, 2, 100),
+	CFrame.new(0, -1, 0), dark, Enum.Material.Slate)
+
+-- Glowing arena markings
+for _, z in ipairs({-42, 42}) do
+	part("ArenaLine", Vector3.new(90, 0.15, 0.5),
+		CFrame.new(0, 0.1, z), purple, Enum.Material.Neon)
+end
+
+for _, x in ipairs({-42, 42}) do
+	part("ArenaLine", Vector3.new(0.5, 0.15, 90),
+		CFrame.new(x, 0.1, 0), cyan, Enum.Material.Neon)
+end
+
+-- Decorative pillars
+for _, pos in ipairs({
+	Vector3.new(-43, 5, -43),
+	Vector3.new(43, 5, -43),
+	Vector3.new(-43, 5, 43),
+	Vector3.new(43, 5, 43),
+}) do
+	part("NeonPillar", Vector3.new(3, 10, 3),
+		CFrame.new(pos), purple, Enum.Material.Neon)
+end
+
+local sign = part("ArenaSign", Vector3.new(1, 1, 1),
+	CFrame.new(0, 8, 42), cyan, Enum.Material.Neon)
+sign.Transparency = 1
+sign.CanCollide = false
+label(sign, "AWAKENING ARENA")
+
+-- Spawn
+local spawn = Instance.new("SpawnLocation")
+spawn.Name = "DemoSpawn"
+spawn.Size = Vector3.new(8, 1, 8)
+spawn.CFrame = CFrame.new(0, 1, 22)
+spawn.Anchored = true
+spawn.Neutral = true
+spawn.Duration = 0
+spawn.Parent = map
+
+-- Training dummy
+local dummy = Instance.new("Model")
+dummy.Name = "TrainingDummy"
+dummy.Parent = map
+
+local root = part("HumanoidRootPart", Vector3.new(2, 2, 1),
+	CFrame.new(0, 3, -22), dark, Enum.Material.SmoothPlastic, dummy)
+root.Transparency = 1
+root.CanCollide = false
+
+local torso = part("Torso", Vector3.new(3, 4, 2),
+	CFrame.new(0, 4, -22), Color3.fromRGB(75, 65, 105),
+	Enum.Material.SmoothPlastic, dummy)
+
+local head = part("Head", Vector3.new(2, 2, 2),
+	CFrame.new(0, 7, -22), cyan, Enum.Material.Neon, dummy)
+
+local hum = Instance.new("Humanoid")
+hum.MaxHealth = 100
+hum.Health = 100
+hum.DisplayName = "Training Shade"
+hum.Parent = dummy
+
+dummy.PrimaryPart = root
+
+local hpGui = Instance.new("BillboardGui")
+hpGui.Size = UDim2.fromOffset(180, 35)
+hpGui.StudsOffset = Vector3.new(0, 4, 0)
+hpGui.AlwaysOnTop = true
+hpGui.Adornee = head
+hpGui.Parent = head
+
+local hpText = Instance.new("TextLabel")
+hpText.Size = UDim2.fromScale(1, 1)
+hpText.BackgroundTransparency = 1
+hpText.TextColor3 = Color3.new(1, 1, 1)
+hpText.TextStrokeTransparency = 0
+hpText.Font = Enum.Font.GothamBold
+hpText.TextScaled = true
+hpText.Parent = hpGui
+
+local function updateHealth()
+	hpText.Text = "SHADE  " .. math.ceil(hum.Health) .. " / " .. hum.MaxHealth
+end
+hum.HealthChanged:Connect(updateHealth)
+updateHealth()
+
+-- Simple ability cooldown
+local lastCast = {}
+
+remote.OnServerEvent:Connect(function(player)
+	local now = os.clock()
+	if lastCast[player] and now - lastCast[player] < 5 then
+		return
+	end
+	lastCast[player] = now
+
+	local character = player.Character
+	local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+	if not playerRoot then return end
+
+	-- Guardian appears behind the player
+	local guardian = Instance.new("Model")
+	guardian.Name = "VoidKnight"
+	guardian.Parent = map
+
+	local base = playerRoot.CFrame * CFrame.new(3, 0, 3)
+
+	local body = part("GuardianBody", Vector3.new(2.5, 4, 1.5),
+		base * CFrame.new(0, 2, 0), purple, Enum.Material.Neon, guardian)
+	body.CanCollide = false
+
+	local headPart = part("GuardianHead", Vector3.new(2, 2, 2),
+		base * CFrame.new(0, 5, 0), dark, Enum.Material.SmoothPlastic, guardian)
+	headPart.CanCollide = false
+
+	local eye1 = part("EyeLeft", Vector3.new(0.35, 0.25, 0.15),
+		base * CFrame.new(-0.4, 5, -1), cyan, Enum.Material.Neon, guardian)
+	eye1.CanCollide = false
+
+	local eye2 = part("EyeRight", Vector3.new(0.35, 0.25, 0.15),
+		base * CFrame.new(0.4, 5, -1), cyan, Enum.Material.Neon, guardian)
+	eye2.CanCollide = false
+
+	for _, side in ipairs({-1, 1}) do
+		local wing = part("EnergyWing", Vector3.new(0.6, 3.5, 1),
+			base * CFrame.new(side * 2, 2.8, 0),
+			cyan, Enum.Material.Neon, guardian)
+		wing.CanCollide = false
+	end
+
+	-- Energy projectile
+	local orb = part("VoidProjectile", Vector3.new(2, 2, 2),
+		CFrame.new(body.Position), cyan, Enum.Material.Neon)
+	orb.Shape = Enum.PartType.Ball
+	orb.CanCollide = false
+	orb.Anchored = true
+
+	local targetPosition = root.Position + Vector3.new(0, 1, 0)
+	local distance = (targetPosition - orb.Position).Magnitude
+	local duration = math.clamp(distance / 75, 0.15, 0.7)
+
+	local tween = TweenService:Create(
+		orb,
+		TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		{Position = targetPosition}
+	)
+	tween:Play()
+
+	tween.Completed:Connect(function()
+		if orb.Parent then
+			-- Damage the training target only
+			if hum.Health > 0 then
+				hum:TakeDamage(25)
+			end
+
+			local burst = part("ImpactBurst", Vector3.new(1, 1, 1),
+				CFrame.new(targetPosition), cyan, Enum.Material.Neon)
+			burst.Shape = Enum.PartType.Ball
+			burst.CanCollide = false
+
+			TweenService:Create(
+				burst,
+				TweenInfo.new(0.25),
+				{Size = Vector3.new(8, 8, 8), Transparency = 1}
+			):Play()
+
+			Debris:AddItem(burst, 0.35)
+			orb:Destroy()
+		end
+	end)
+
+	Debris:AddItem(guardian, 1.5)
+	Debris:AddItem(orb, 2)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	lastCast[player] = nil
+end)
+
+print("Awakening Demo ready!")
