@@ -1,0 +1,82 @@
+
+-- AWAKENING DEMO - CLIENT UI
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local remote = ReplicatedStorage:WaitForChild("AwakenPower")
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "AwakeningDemoUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local panel = Instance.new("Frame")
+panel.Name = "AbilityPanel"
+panel.Size = UDim2.fromOffset(230, 100)
+panel.Position = UDim2.new(1, -250, 1, -130)
+panel.BackgroundColor3 = Color3.fromRGB(22, 18, 40)
+panel.BackgroundTransparency = 0.1
+panel.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = panel
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(145, 75, 255)
+stroke.Thickness = 2
+stroke.Parent = panel
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "VOID KNIGHT"
+title.TextColor3 = Color3.fromRGB(100, 225, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 17
+title.Parent = panel
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(1, -20, 0, 52)
+button.Position = UDim2.new(0, 10, 0, 38)
+button.BackgroundColor3 = Color3.fromRGB(115, 55, 210)
+button.Text = "AWAKEN  [E]"
+button.TextColor3 = Color3.new(1, 1, 1)
+button.TextSize = 20
+button.Font = Enum.Font.GothamBold
+button.AutoButtonColor = true
+button.Parent = panel
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 8)
+buttonCorner.Parent = button
+
+local ready = true
+
+local function activate()
+	if not ready then return end
+	ready = false
+
+	button.Text = "POWER USED..."
+	button.BackgroundColor3 = Color3.fromRGB(65, 65, 85)
+
+	remote:FireServer()
+
+	task.delay(5, function()
+		ready = true
+		button.Text = "AWAKEN  [E]"
+		button.BackgroundColor3 = Color3.fromRGB(115, 55, 210)
+	end)
+end
+
+button.Activated:Connect(activate)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.E then
+		activate()
+	end
+end)
