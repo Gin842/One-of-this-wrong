@@ -1,0 +1,346 @@
+
+-- NeonDistrictServer
+-- Original anime RPG prototype
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local old = workspace:FindFirstChild("NeonDistrict")
+if old then old:Destroy() end
+
+local world = Instance.new("Folder")
+world.Name = "NeonDistrict"
+world.Parent = workspace
+
+local remote = ReplicatedStorage:FindFirstChild("RPGEvent")
+if not remote then
+    remote = Instance.new("RemoteEvent")
+    remote.Name = "RPGEvent"
+    remote.Parent = ReplicatedStorage
+end
+
+local function part(parent, name, size, pos, color, material)
+    local p = Instance.new("Part")
+    p.Name = name
+    p.Size = size
+    p.Position = pos
+    p.Anchored = true
+    p.Color = color
+    p.Material = material or Enum.Material.SmoothPlastic
+    p.TopSurface = Enum.SurfaceType.Smooth
+    p.BottomSurface = Enum.SurfaceType.Smooth
+    p.Parent = parent
+    return p
+end
+
+local function neonLine(parent, name, size, pos, color)
+    local p = part(parent, name, size, pos, color, Enum.Material.Neon)
+    p.CanCollide = false
+    return p
+end
+
+local function makeShop(name, pos, color, title)
+    local m = Instance.new("Model")
+    m.Name = name
+    m.Parent = world
+
+    part(m, "Building", Vector3.new(24, 16, 18),
+        pos + Vector3.new(0, 8, 0), Color3.fromRGB(28, 28, 48))
+
+    part(m, "Roof", Vector3.new(26, 1, 20),
+        pos + Vector3.new(0, 16.5, 0), color, Enum.Material.Metal)
+
+    part(m, "Door", Vector3.new(5, 9, 0.5),
+        pos + Vector3.new(0, 4.5, -9.2), Color3.fromRGB(12, 14, 24))
+
+    neonLine(m, "Sign", Vector3.new(18, 1, 0.4),
+        pos + Vector3.new(0, 13, -9.4), color)
+
+    local sign = Instance.new("BillboardGui")
+    sign.Size = UDim2.fromOffset(220, 48)
+    sign.StudsOffset = Vector3.new(0, 3, 0)
+    sign.AlwaysOnTop = true
+    sign.Parent = m.Sign
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.Text = title
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.TextColor3 = color
+    label.Parent = sign
+
+    -- Display shelves
+    for i = -1, 1 do
+        part(m, "DisplayShelf", Vector3.new(5, 1, 2),
+            pos + Vector3.new(i * 6, 3, -5), Color3.fromRGB(60, 60, 80))
+    end
+
+    -- Simple original NPC
+    local npc = Instance.new("Model")
+    npc.Name = name .. "_NPC"
+    npc.Parent = world
+
+    local rootPos = pos + Vector3.new(0, 0, -14)
+    local root = part(npc, "HumanoidRootPart",
+        Vector3.new(2, 2, 1), rootPos + Vector3.new(0, 3, 0),
+        Color3.fromRGB(30, 30, 40))
+    root.Transparency = 1
+    root.CanCollide = false
+
+    local torso = part(npc, "Torso", Vector3.new(2, 2.5, 1),
+        rootPos + Vector3.new(0, 3, 0), color)
+    torso.CanCollide = false
+
+    local head = part(npc, "Head", Vector3.new(1.5, 1.5, 1.5),
+        rootPos + Vector3.new(0, 5, 0), Color3.fromRGB(235, 204, 180))
+    head.CanCollide = false
+
+    local hum = Instance.new("Humanoid")
+    hum.DisplayName = title
+    hum.Parent = npc
+    npc.PrimaryPart = root
+
+    -- Keep NPC parts stationary
+    for _, obj in ipairs(npc:GetChildren()) do
+        if obj:IsA("BasePart") then
+            obj.Anchored = true
+        end
+    end
+
+    return m
+end
+
+-- Main city floor
+part(world, "CityFloor", Vector3.new(220, 2, 180),
+    Vector3.new(0, -1, 0), Color3.fromRGB(24, 25, 39), Enum.Material.Asphalt)
+
+-- Walkways and plaza
+part(world, "CentralPlaza", Vector3.new(58, 0.3, 48),
+    Vector3.new(0, 0.2, 0), Color3.fromRGB(42, 43, 63))
+
+for x = -90, 90, 30 do
+    neonLine(world, "StreetLight", Vector3.new(0.5, 15, 0.5),
+        Vector3.new(x, 7.5, -45), Color3.fromRGB(0, 220, 255))
+    part(world, "LampGlow", Vector3.new(4, 0.5, 4),
+        Vector3.new(x, 15, -45), Color3.fromRGB(0, 220, 255),
+        Enum.Material.Neon)
+end
+
+-- Skyline buildings
+for i = 1, 10 do
+    local x = -95 + i * 20
+    local h = 20 + (i % 4) * 8
+    part(world, "CityBuilding", Vector3.new(14, h, 16),
+        Vector3.new(x, h / 2, -78),
+        Color3.fromRGB(29, 31, 51), Enum.Material.Concrete)
+
+    neonLine(world, "BuildingAccent", Vector3.new(10, 0.35, 0.3),
+        Vector3.new(x, h * 0.7, -69.8),
+        i % 2 == 0 and Color3.fromRGB(190, 55, 255)
+            or Color3.fromRGB(0, 220, 255))
+end
+
+-- Shops
+makeShop("WeaponShop", Vector3.new(-55, 0, 18),
+    Color3.fromRGB(255, 90, 110), "WEAPONS")
+makeShop("ArmorShop", Vector3.new(0, 0, 48),
+    Color3.fromRGB(80, 180, 255), "ARMOR")
+makeShop("ClothingShop", Vector3.new(55, 0, 18),
+    Color3.fromRGB(220, 100, 255), "STYLE")
+
+-- Decorative weapon displays
+for i = 1, 3 do
+    local sword = part(world, "SwordDisplay",
+        Vector3.new(0.35, 5, 0.6),
+        Vector3.new(-61 + i * 6, 4, 12),
+        Color3.fromRGB(100, 220, 255), Enum.Material.Neon)
+    sword.CanCollide = false
+end
+
+local gun = part(world, "PistolDisplay", Vector3.new(2, 0.6, 0.8),
+    Vector3.new(-55, 3.7, 12), Color3.fromRGB(190, 190, 210),
+    Enum.Material.Metal)
+gun.CanCollide = false
+
+-- Obby entrance
+part(world, "ObbyEntrance", Vector3.new(24, 1, 10),
+    Vector3.new(72, 1, -35), Color3.fromRGB(70, 35, 110))
+neonLine(world, "ObbyGate", Vector3.new(18, 0.6, 0.6),
+    Vector3.new(72, 7, -40), Color3.fromRGB(200, 70, 255))
+
+local obby = Instance.new("Folder")
+obby.Name = "Obby"
+obby.Parent = world
+
+local start = Vector3.new(72, 3, -48)
+part(obby, "Start", Vector3.new(12, 1, 12),
+    start, Color3.fromRGB(0, 220, 255))
+
+for i = 1, 8 do
+    local x = 72 + math.sin(i * 0.8) * 8
+    local z = -48 - i * 9
+    local y = 3 + (i % 3) * 2
+    part(obby, "JumpPlatform", Vector3.new(8, 1, 8),
+        Vector3.new(x, y, z),
+        i % 2 == 0 and Color3.fromRGB(160, 60, 255)
+            or Color3.fromRGB(0, 190, 255))
+end
+
+local finish = part(obby, "Finish", Vector3.new(14, 1, 14),
+    Vector3.new(72, 5, -132), Color3.fromRGB(255, 210, 60),
+    Enum.Material.Neon)
+
+local finishCooldown = {}
+finish.Touched:Connect(function(hit)
+    local character = hit.Parent
+    local player = Players:GetPlayerFromCharacter(character)
+    if not player or finishCooldown[player] then return end
+
+    finishCooldown[player] = true
+    local stats = player:FindFirstChild("leaderstats")
+    local coins = stats and stats:FindFirstChild("Coins")
+    if coins then
+        local reward = math.random(10, 30)
+        coins.Value += reward
+        remote:FireClient(player, "Notice",
+            "OBBY COMPLETE! +" .. reward .. " Coins")
+    end
+
+    task.delay(8, function()
+        finishCooldown[player] = nil
+    end)
+end)
+
+-- Player data and Persona state
+local personas = {"VoidKnight", "StarWarden", "CrimsonReaper"}
+
+local function setupPlayer(player)
+    local stats = Instance.new("Folder")
+    stats.Name = "leaderstats"
+    stats.Parent = player
+
+    local coins = Instance.new("IntValue")
+    coins.Name = "Coins"
+    coins.Value = 100
+    coins.Parent = stats
+
+    player:SetAttribute("MP", 100)
+    player:SetAttribute("MaxMP", 100)
+    player:SetAttribute("PersonaIndex", 1)
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+for _, player in ipairs(Players:GetPlayers()) do
+    if not player:FindFirstChild("leaderstats") then
+        setupPlayer(player)
+    end
+end
+
+local colors = {
+    Color3.fromRGB(130, 55, 255),
+    Color3.fromRGB(40, 220, 255),
+    Color3.fromRGB(255, 55, 85)
+}
+
+local names = {"VoidKnight", "StarWarden", "CrimsonReaper"}
+local busy = {}
+
+local function summon(player)
+    if busy[player] then return end
+    local character = player.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local mp = player:GetAttribute("MP") or 100
+    if mp < 20 then
+        remote:FireClient(player, "Notice", "Not enough MP!")
+        return
+    end
+
+    busy[player] = true
+    player:SetAttribute("MP", mp - 20)
+
+    local index = player:GetAttribute("PersonaIndex") or 1
+    local color = colors[index]
+    local model = Instance.new("Model")
+    model.Name = names[index] .. "_Summon"
+    model.Parent = world
+
+    local base = root.CFrame * CFrame.new(4, 0, -3)
+    local function summonPart(name, size, offset, c, material)
+        local p = Instance.new("Part")
+        p.Name = name
+        p.Size = size
+        p.Color = c
+        p.Material = material or Enum.Material.Neon
+        p.Anchored = true
+        p.CanCollide = false
+        p.CFrame = base * CFrame.new(offset)
+        p.Parent = model
+        return p
+    end
+
+    -- Three silhouettes use different colors and shapes.
+    summonPart("Body", Vector3.new(2.2, 3.5, 1.2),
+        Vector3.new(0, 3.5, 0), color)
+    summonPart("Head", Vector3.new(1.8, 1.8, 1.8),
+        Vector3.new(0, 6.2, 0), Color3.fromRGB(25, 25, 40))
+    summonPart("LeftEye", Vector3.new(0.35, 0.2, 0.15),
+        Vector3.new(-0.4, 6.3, -0.92), color)
+    summonPart("RightEye", Vector3.new(0.35, 0.2, 0.15),
+        Vector3.new(0.4, 6.3, -0.92), color)
+
+    if index == 1 then
+        summonPart("HornL", Vector3.new(0.35, 2, 0.35),
+            Vector3.new(-0.8, 7.4, 0), color)
+        summonPart("HornR", Vector3.new(0.35, 2, 0.35),
+            Vector3.new(0.8, 7.4, 0), color)
+    elseif index == 2 then
+        summonPart("Halo", Vector3.new(3, 0.25, 3),
+            Vector3.new(0, 8, 0), color)
+        summonPart("WingL", Vector3.new(2.5, 3, 0.5),
+            Vector3.new(-2, 4, 0), color)
+        summonPart("WingR", Vector3.new(2.5, 3, 0.5),
+            Vector3.new(2, 4, 0), color)
+    else
+        summonPart("Blade", Vector3.new(0.45, 5, 0.45),
+            Vector3.new(2, 3.5, 0), color)
+        summonPart("ShoulderL", Vector3.new(1.6, 1, 1.6),
+            Vector3.new(-1.5, 5, 0), color)
+        summonPart("ShoulderR", Vector3.new(1.6, 1, 1.6),
+            Vector3.new(1.5, 5, 0), color)
+    end
+
+    remote:FireClient(player, "Notice", names[index] .. " summoned!")
+
+    -- Fade out after the reveal
+    task.wait(2.5)
+    for _, p in ipairs(model:GetChildren()) do
+        if p:IsA("BasePart") then
+            TweenService:Create(p, TweenInfo.new(0.6),
+                {Transparency = 1}):Play()
+        end
+    end
+    task.wait(0.7)
+    model:Destroy()
+    busy[player] = nil
+end
+
+remote.OnServerEvent:Connect(function(player, action)
+    if action == "Switch" then
+        local index = (player:GetAttribute("PersonaIndex") or 1) % 3 + 1
+        player:SetAttribute("PersonaIndex", index)
+        remote:FireClient(player, "Notice",
+            "Persona: " .. names[index])
+    elseif action == "Summon" then
+        task.spawn(summon, player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    finishCooldown[player] = nil
+    busy[player] = nil
+end)
