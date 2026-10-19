@@ -1,0 +1,801 @@
+
+--[[
+    CODE X - WORLD GENERATOR
+    Original dark-fantasy world
+    Generates the central arena, 20 bases, forges,
+    Code galleries, bridges, and personal obby courses.
+
+    Place this Script inside ServerScriptService.
+]]
+
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+
+--==================================================
+-- CONFIGURATION
+--==================================================
+
+local CONFIG = {
+    BaseCount = 20,
+    BaseRadius = 245,
+    BaseWidth = 72,
+    BaseDepth = 66,
+    ArenaDiameter = 190,
+    ObbySteps = 7,
+}
+
+local C = {
+    Black = Color3.fromRGB(15, 13, 23),
+    Stone = Color3.fromRGB(35, 31, 45),
+    StoneLight = Color3.fromRGB(57, 48, 67),
+    Red = Color3.fromRGB(190, 25, 57),
+    RedDark = Color3.fromRGB(83, 13, 37),
+    Purple = Color3.fromRGB(123, 54, 255),
+    PurpleDark = Color3.fromRGB(54, 27, 105),
+    Gold = Color3.fromRGB(225, 173, 77),
+    Metal = Color3.fromRGB(90, 91, 111),
+    White = Color3.fromRGB(224, 218, 240),
+}
+
+local MAT = Enum.Material
+
+--==================================================
+-- CLEAN PREVIOUS GENERATED WORLD
+--==================================================
+
+local oldWorld = Workspace:FindFirstChild("CODE_X_WORLD")
+if oldWorld then
+    oldWorld:Destroy()
+end
+
+local World = Instance.new("Folder")
+World.Name = "CODE_X_WORLD"
+World.Parent = Workspace
+
+local ArenaFolder = Instance.new("Folder")
+ArenaFolder.Name = "Central_Arena"
+ArenaFolder.Parent = World
+
+local BasesFolder = Instance.new("Folder")
+BasesFolder.Name = "Player_Bases"
+BasesFolder.Parent = World
+
+local LandmarksFolder = Instance.new("Folder")
+LandmarksFolder.Name = "World_Landmarks"
+LandmarksFolder.Parent = World
+
+--==================================================
+-- ATMOSPHERE
+--==================================================
+
+Lighting.ClockTime = 0
+Lighting.Brightness = 2
+Lighting.Ambient = Color3.fromRGB(65, 48, 91)
+Lighting.OutdoorAmbient = Color3.fromRGB(35, 25, 52)
+Lighting.GlobalShadows = true
+
+local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+if not atmosphere then
+    atmosphere = Instance.new("Atmosphere")
+    atmosphere.Parent = Lighting
+end
+
+atmosphere.Density = 0.28
+atmosphere.Offset = 0.05
+atmosphere.Color = Color3.fromRGB(157, 124, 198)
+atmosphere.Decay = Color3.fromRGB(57, 20, 56)
+atmosphere.Glare = 0.15
+atmosphere.Haze = 1.5
+
+local colorEffect = Lighting:FindFirstChild("CODE_X_Color")
+if colorEffect then colorEffect:Destroy() end
+
+colorEffect = Instance.new("ColorCorrectionEffect")
+colorEffect.Name = "CODE_X_Color"
+colorEffect.TintColor = Color3.fromRGB(220, 203, 255)
+colorEffect.Contrast = 0.15
+colorEffect.Saturation = -0.12
+colorEffect.Parent = Lighting
+
+--==================================================
+-- BUILDING HELPERS
+--==================================================
+
+local function newModel(parent, name)
+    local model = Instance.new("Model")
+    model.Name = name
+    model.Parent = parent
+    return model
+end
+
+local function part(parent, name, size, cf, color, material, shape, collide)
+    local p = Instance.new("Part")
+    p.Name = name
+    p.Size = size
+    p.CFrame = cf
+    p.Color = color or C.Stone
+    p.Material = material or MAT.Slate
+    p.Anchored = true
+    p.TopSurface = Enum.SurfaceType.Smooth
+    p.BottomSurface = Enum.SurfaceType.Smooth
+    p.CanCollide = collide ~= false
+    p.CastShadow = true
+
+    if shape then
+        p.Shape = shape
+    end
+
+    p.Parent = parent
+    return p
+end
+
+local function localPart(parent, name, size, baseCF, x, y, z,
+    color, material, shape, rx, ry, rz, collide)
+
+    local offset = CFrame.new(x, y, z)
+        * CFrame.Angles(
+            math.rad(rx or 0),
+            math.rad(ry or 0),
+            math.rad(rz or 0)
+        )
+
+    return part(
+        parent, name, size, baseCF * offset,
+        color, material, shape, collide
+    )
+end
+
+local function neon(parent, name, size, cf, color)
+    local p = part(parent, name, size, cf, color, MAT.Neon, nil, false)
+    return p
+end
+
+local function localNeon(parent, name, size, baseCF, x, y, z, color, rx, ry, rz)
+    return localPart(
+        parent, name, size, baseCF, x, y, z,
+        color, MAT.Neon, nil, rx, ry, rz, false
+    )
+end
+
+local function pointLight(parent, color, brightness, range)
+    local light = Instance.new("PointLight")
+    light.Color = color
+    light.Brightness = brightness
+    light.Range = range
+    light.Shadows = false
+    light.Parent = parent
+    return light
+end
+
+local function sign(parent, baseCF, text, x, y, z, width, height)
+    local plate = localPart(
+        parent, "Inscribed_Sign",
+        Vector3.new(width, height, 0.7),
+        baseCF, x, y, z, C.Black, MAT.Metal
+    )
+
+    local face = Instance.new("SurfaceGui")
+    face.Name = "Sign_Surface"
+    face.Face = Enum.NormalId.Front
+    face.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+    face.PixelsPerStud = 35
+    face.Parent = plate
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = C.Gold
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBlack
+    label.Parent = face
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = C.Red
+    stroke.Thickness = 1.5
+    stroke.Parent = label
+
+    return plate
+end
+
+local function pillar(parent, cf, x, y, z, height, color)
+    localModel = nil
+
+    localPart(parent, "Carved_Pillar",
+        Vector3.new(3.5, height, 3.5),
+        cf, x, y + height / 2, z, color or C.StoneLight, MAT.Slate)
+
+    localPart(parent, "Pillar_Capital",
+        Vector3.new(5, 1.2, 5),
+        cf, x, y + height, z, C.Metal, MAT.Metal)
+
+    localPart(parent, "Pillar_Base",
+        Vector3.new(5, 1.2, 5),
+        cf, x, y + 0.6, z, C.StoneLight, MAT.Slate)
+end
+
+local function swordDisplay(parent, cf, x, y, z, scale)
+    scale = scale or 1
+
+    -- Vertical weapon display with a blade, guard and grip.
+    localPart(parent, "Display_Blade",
+        Vector3.new(0.42, 5 * scale, 0.7),
+        cf, x, y + 3 * scale, z,
+        C.Metal, MAT.Metal, nil, 0, 0, 0, false)
+
+    localPart(parent, "Blade_Edge",
+        Vector3.new(0.12, 4.6 * scale, 0.76),
+        cf, x + 0.25, y + 3 * scale, z,
+        C.White, MAT.Metal, nil, 0, 0, 0, false)
+
+    localPart(parent, "Weapon_Guard",
+        Vector3.new(2 * scale, 0.38 * scale, 1),
+        cf, x, y + 0.7 * scale, z,
+        C.Gold, MAT.Metal, nil, 0, 0, 0, false)
+
+    localPart(parent, "Weapon_Grip",
+        Vector3.new(0.5 * scale, 1.5 * scale, 0.6),
+        cf, x, y - 0.15 * scale, z,
+        C.RedDark, MAT.Wood, nil, 0, 0, 0, false)
+
+    localPart(parent, "Pommel",
+        Vector3.new(0.8, 0.8, 0.8) * scale,
+        cf, x, y - 1 * scale, z,
+        C.Gold, MAT.Metal, Enum.PartType.Ball, 0, 0, 0, false)
+end
+
+local function armorDisplay(parent, cf, x, y, z)
+    -- Stylized armor mannequin made from primitive parts.
+    localModel = nil
+
+    localPart(parent, "Armor_Pedestal",
+        Vector3.new(4, 1.2, 4),
+        cf, x, y + 0.6, z, C.Black, MAT.Metal)
+
+    localPart(parent, "Armor_Legs",
+        Vector3.new(2.5, 2.8, 1.5),
+        cf, x, y + 2.5, z, C.Metal, MAT.Metal)
+
+    localPart(parent, "Armor_Torso",
+        Vector3.new(4, 3.5, 2),
+        cf, x, y + 5.4, z, C.RedDark, MAT.Metal)
+
+    localPart(parent, "Armor_Chest_Plate",
+        Vector3.new(3.3, 2.6, 0.5),
+        cf, x, y + 5.5, z - 1.15, C.Metal, MAT.Metal)
+
+    localPart(parent, "Armor_Shoulder_Left",
+        Vector3.new(1.7, 1.7, 2),
+        cf, x - 2.3, y + 6.5, z, C.Gold, MAT.Metal)
+
+    localPart(parent, "Armor_Shoulder_Right",
+        Vector3.new(1.7, 1.7, 2),
+        cf, x + 2.3, y + 6.5, z, C.Gold, MAT.Metal)
+
+    localPart(parent, "Armor_Helmet",
+        Vector3.new(2.4, 2.4, 2.2),
+        cf, x, y + 8.3, z, C.Black, MAT.Metal,
+        Enum.PartType.Ball)
+
+    localPart(parent, "Helmet_Visor",
+        Vector3.new(1.5, 0.25, 0.3),
+        cf, x, y + 8.3, z - 1.1, C.Red, MAT.Neon,
+        nil, 0, 0, 0, false)
+end
+
+--==================================================
+-- CENTRAL ARENA
+--==================================================
+
+local arena = ArenaFolder
+local identityCF = CFrame.new()
+
+-- The arena is built as concentric stone and metal rings.
+part(arena, "Arena_Understructure",
+    Vector3.new(CONFIG.ArenaDiameter, 8, CONFIG.ArenaDiameter),
+    CFrame.new(0, -4, 0), C.Black, MAT.Basalt, Enum.PartType.Cylinder)
+
+part(arena, "Outer_Stone_Ring",
+    Vector3.new(184, 2, 184),
+    CFrame.new(0, 1, 0), C.Stone, MAT.Slate, Enum.PartType.Cylinder)
+
+part(arena, "Middle_Metal_Ring",
+    Vector3.new(156, 1, 156),
+    CFrame.new(0, 2.2, 0), C.Metal, MAT.Metal, Enum.PartType.Cylinder)
+
+part(arena, "Inner_Stone_Ring",
+    Vector3.new(136, 1, 136),
+    CFrame.new(0, 2.9, 0), C.StoneLight, MAT.Slate, Enum.PartType.Cylinder)
+
+part(arena, "Combat_Floor",
+    Vector3.new(116, 1, 116),
+    CFrame.new(0, 3.5, 0), C.Black, MAT.Basalt, Enum.PartType.Cylinder)
+
+-- Crimson energy ring around the combat zone.
+part(arena, "Crimson_Ring",
+    Vector3.new(160, 0.35, 160),
+    CFrame.new(0, 2.95, 0), C.Red, MAT.Neon, Enum.PartType.Cylinder, false)
+
+part(arena, "Arena_Inner_Disc",
+    Vector3.new(116, 0.6, 116),
+    CFrame.new(0, 4, 0), C.Black, MAT.Basalt, Enum.PartType.Cylinder)
+
+-- A central ritual emblem.
+part(arena, "Ritual_Outer_Disc",
+    Vector3.new(52, 0.35, 52),
+    CFrame.new(0, 4.4, 0), C.PurpleDark, MAT.Metal, Enum.PartType.Cylinder, false)
+
+part(arena, "Ritual_Glow",
+    Vector3.new(40, 0.4, 40),
+    CFrame.new(0, 4.65, 0), C.Purple, MAT.Neon, Enum.PartType.Cylinder, false)
+
+part(arena, "Ritual_Core",
+    Vector3.new(28, 0.5, 28),
+    CFrame.new(0, 4.9, 0), C.Black, MAT.Metal, Enum.PartType.Cylinder, false)
+
+-- Eight radial markings around the central seal.
+for i = 1, 8 do
+    local angle = math.rad(i * 45)
+    local radius = 25
+    local x = math.cos(angle) * radius
+    local z = math.sin(angle) * radius
+
+    part(arena, "Ritual_Ray_" .. i,
+        Vector3.new(0.45, 0.15, 12),
+        CFrame.new(x, 5.25, z) * CFrame.Angles(0, -angle, 0),
+        C.Gold, MAT.Neon, nil, false)
+end
+
+-- Heavy gothic pillars around the arena.
+for i = 1, 12 do
+    local angle = math.rad(i * 30)
+    local radius = 83
+    local x = math.cos(angle) * radius
+    local z = math.sin(angle) * radius
+
+    local pillarModel = newModel(arena, "Arena_Pillar_" .. i)
+
+    localPart(pillarModel, "Obsidian_Shaft",
+        Vector3.new(4, 19, 4),
+        identityCF, x, 12, z, C.Black, MAT.Basalt)
+
+    localPart(pillarModel, "Crown",
+        Vector3.new(6, 2, 6),
+        identityCF, x, 22.5, z, C.StoneLight, MAT.Metal)
+
+    localPart(pillarModel, "Crimson_Inlay",
+        Vector3.new(0.3, 13, 4.15),
+        identityCF, x, 12, z - 2.1, C.Red, MAT.Neon, nil, 0, 0, 0, false)
+
+    local lamp = localPart(pillarModel, "Energy_Lamp",
+        Vector3.new(1.1, 1.1, 1.1),
+        identityCF, x, 19.5, z, C.Purple, MAT.Neon,
+        Enum.PartType.Ball, 0, 0, 0, false)
+
+    pointLight(lamp, C.Purple, 1.2, 14)
+end
+
+-- Arena title monument at the north side.
+local gate = newModel(arena, "NEXUS_GATE")
+local gateCF = CFrame.new(0, 0, -103)
+
+localPart(gate, "Left_Gate_Tower",
+    Vector3.new(8, 31, 8), gateCF, -15, 17, 0, C.Black, MAT.Basalt)
+
+localPart(gate, "Right_Gate_Tower",
+    Vector3.new(8, 31, 8), gateCF, 15, 17, 0, C.Black, MAT.Basalt)
+
+localPart(gate, "Gate_Lintel",
+    Vector3.new(39, 7, 8), gateCF, 0, 32, 0, C.StoneLight, MAT.Slate)
+
+localPart(gate, "Inner_Gate_Shadow",
+    Vector3.new(21, 22, 1), gateCF, 0, 14, 3.6, C.PurpleDark, MAT.Neon, nil, 0, 0, 0, false)
+
+localPart(gate, "Gate_Threshold",
+    Vector3.new(32, 1.2, 12), gateCF, 0, 1, 0, C.Metal, MAT.Metal)
+
+localPart(gate, "Gate_Energy",
+    Vector3.new(15, 19, 0.6), gateCF, 0, 13, 4.4, C.RedDark, MAT.Neon, nil, 0, 0, 0, false)
+
+localPart(gate, "Gate_Seal",
+    Vector3.new(4, 4, 0.8), gateCF, 0, 14, 4.9, C.Gold, MAT.Neon, nil, 0, 0, 0, false)
+
+sign(gate, gateCF, "THE NEXUS", 0, 25, -4.3, 20, 3.5)
+
+--==================================================
+-- WORLD LANDMARKS
+--==================================================
+
+-- Distant spires give the world visual depth.
+for i = 1, 8 do
+    local angle = math.rad(i * 45 + 12)
+    local radius = 350
+    local x = math.cos(angle) * radius
+    local z = math.sin(angle) * radius
+    local height = 45 + (i % 3) * 18
+
+    local spire = newModel(LandmarksFolder, "Distant_Spire_" .. i)
+
+    part(spire, "Obsidian_Spire",
+        Vector3.new(14, height, 14),
+        CFrame.new(x, height / 2 - 5, z),
+        C.Black, MAT.Basalt)
+
+    part(spire, "Spire_Cap",
+        Vector3.new(19, 3, 19),
+        CFrame.new(x, height - 5, z),
+        C.StoneLight, MAT.Metal)
+
+    part(spire, "Spire_Light",
+        Vector3.new(1.4, height * 0.55, 1.4),
+        CFrame.new(x + 7.2, height * 0.48 - 5, z),
+        C.Purple, MAT.Neon, nil, false)
+end
+
+-- Floating decorative monoliths around the outer world.
+for i = 1, 6 do
+    local angle = math.rad(i * 60 + 15)
+    local radius = 390
+    local x = math.cos(angle) * radius
+    local z = math.sin(angle) * radius
+
+    local monolith = part(
+        LandmarksFolder, "Floating_Monolith",
+        Vector3.new(12, 30, 8),
+        CFrame.new(x, 18, z) * CFrame.Angles(0, angle, math.rad(8)),
+        C.Black, MAT.Basalt, nil, false
+    )
+
+    local glow = part(
+        LandmarksFolder, "Monolith_Rune",
+        Vector3.new(0.5, 18, 0.6),
+        monolith.CFrame * CFrame.new(0, 0, -4.3),
+        C.Red, MAT.Neon, nil, false
+    )
+end
+
+--==================================================
+-- BASE GENERATOR
+--==================================================
+
+local function buildBase(baseNumber, angle)
+    local radians = math.rad(angle)
+
+    local position = Vector3.new(
+        math.sin(radians) * CONFIG.BaseRadius,
+        0,
+        -math.cos(radians) * CONFIG.BaseRadius
+    )
+
+    -- Every base faces inward toward the central arena.
+    local baseCF = CFrame.lookAt(position, Vector3.new(0, 0, 0))
+    local base = newModel(BasesFolder, string.format("BASE_%02d", baseNumber))
+
+    base:SetAttribute("BaseNumber", baseNumber)
+    base:SetAttribute("AssignedUserId", 0)
+    base:SetAttribute("IsAssigned", false)
+
+    -- Foundation and raised platform.
+    localPart(base, "Foundation",
+        Vector3.new(76, 4, 70),
+        baseCF, 0, -1, 0, C.Black, MAT.Basalt)
+
+    localPart(base, "Platform",
+        Vector3.new(CONFIG.BaseWidth, 2, CONFIG.BaseDepth),
+        baseCF, 0, 1, 0, C.Stone, MAT.Slate)
+
+    localPart(base, "Platform_Inlay",
+        Vector3.new(66, 0.22, 60),
+        baseCF, 0, 2.1, 0, C.StoneLight, MAT.Metal, nil, 0, 0, 0, false)
+
+    -- Border strips with glowing corners.
+    for _, side in ipairs({-1, 1}) do
+        localPart(base, "Side_Border",
+            Vector3.new(1.2, 0.4, 66),
+            baseCF, side * 35, 2.25, 0, C.Gold, MAT.Metal, nil, 0, 0, 0, false)
+
+        localPart(base, "Side_Glow",
+            Vector3.new(0.35, 0.18, 61),
+            baseCF, side * 34.2, 2.48, 0, C.Purple, MAT.Neon, nil, 0, 0, 0, false)
+    end
+
+    for _, side in ipairs({-1, 1}) do
+        localPart(base, "Front_Back_Border",
+            Vector3.new(70, 0.4, 1.2),
+            baseCF, 0, 2.25, side * 32, C.Gold, MAT.Metal, nil, 0, 0, 0, false)
+    end
+
+    -- Decorative entrance gate at the front.
+    localPart(base, "Entrance_Left",
+        Vector3.new(3, 11, 3),
+        baseCF, -23, 7, -27, C.Black, MAT.Basalt)
+
+    localPart(base, "Entrance_Right",
+        Vector3.new(3, 11, 3),
+        baseCF, 23, 7, -27, C.Black, MAT.Basalt)
+
+    localPart(base, "Entrance_Top",
+        Vector3.new(49, 3, 4),
+        baseCF, 0, 13, -27, C.StoneLight, MAT.Metal)
+
+    localPart(base, "Entrance_Left_Glow",
+        Vector3.new(0.35, 8, 0.4),
+        baseCF, -21.4, 7, -28.7, C.Red, MAT.Neon, nil, 0, 0, 0, false)
+
+    localPart(base, "Entrance_Right_Glow",
+        Vector3.new(0.35, 8, 0.4),
+        baseCF, 21.4, 7, -28.7, C.Purple, MAT.Neon, nil, 0, 0, 0, false)
+
+    sign(base, baseCF, "DOMAIN " .. string.format("%02d", baseNumber),
+        0, 10, -29.2, 18, 2.8)
+
+    -- Rear architectural wall: layered gothic facade.
+    localPart(base, "Rear_Wall",
+        Vector3.new(48, 14, 3),
+        baseCF, 0, 9, 29, C.Black, MAT.Basalt)
+
+    localPart(base, "Rear_Wall_Inlay",
+        Vector3.new(40, 9, 0.35),
+        baseCF, 0, 9, 27.2, C.RedDark, MAT.Metal, nil, 0, 0, 0, false)
+
+    localPart(base, "Rear_Wall_Rune",
+        Vector3.new(1, 9, 0.5),
+        baseCF, 0, 9, 26.9, C.Purple, MAT.Neon, nil, 0, 0, 0, false)
+
+    -- Corner towers.
+    for _, x in ipairs({-31, 31}) do
+        localPart(base, "Corner_Tower",
+            Vector3.new(6, 15, 6),
+            baseCF, x, 9, 24, C.Black, MAT.Basalt)
+
+        localPart(base, "Tower_Cap",
+            Vector3.new(8, 2, 8),
+            baseCF, x, 17.5, 24, C.StoneLight, MAT.Metal)
+
+        localPart(base, "Tower_Rune",
+            Vector3.new(0.4, 8, 0.4),
+            baseCF, x, 9, 20.8, C.Red, MAT.Neon, nil, 0, 0, 0, false)
+    end
+
+    -- Forge shop: visibly different from the main structure.
+    local forge = newModel(base, "FORGE_DISTRICT")
+    local forgeCF = baseCF
+
+    -- Forge foundation.
+    localPart(forge, "Forge_Floor",
+        Vector3.new(21, 1, 21),
+        forgeCF, -20, 2.7, 8, C.Black, MAT.Basalt)
+
+    -- Side columns and open facade.
+    for _, x in ipairs({-29, -11}) do
+        pillar(forge, forgeCF, x, 3, 13, 10, C.StoneLight)
+    end
+
+    localPart(forge, "Forge_Roof",
+        Vector3.new(23, 2, 22),
+        forgeCF, -20, 14, 8, C.Black, MAT.Slate)
+
+    localPart(forge, "Forge_Roof_Inlay",
+        Vector3.new(17, 0.3, 16),
+        forgeCF, -20, 15.2, 8, C.RedDark, MAT.Metal, nil, 0, 0, 0, false)
+
+    -- Furnace body and glowing opening.
+    localPart(forge, "Furnace_Base",
+        Vector3.new(8, 6, 6),
+        forgeCF, -20, 5.5, 10, C.Metal, MAT.Metal)
+
+    local furnaceGlow = localPart(forge, "Furnace_Fire",
+        Vector3.new(4.5, 3.5, 0.5),
+        forgeCF, -20, 5.8, 6.7, C.Red, MAT.Neon, nil, 0, 0, 0, false)
+
+    pointLight(furnaceGlow, C.Red, 2, 14)
+
+    localPart(forge, "Furnace_Chimney",
+        Vector3.new(4, 9, 4),
+        forgeCF, -20, 13, 13, C.Black, MAT.Basalt)
+
+    localPart(forge, "Chimney_Glow",
+        Vector3.new(1.2, 7, 1.2),
+        forgeCF, -20, 13, 10.7, C.Red, MAT.Neon, nil, 0, 0, 0, false)
+
+    -- Anvil with a recognizable silhouette.
+    localPart(forge, "Anvil_Foot",
+        Vector3.new(3, 1.2, 3),
+        forgeCF, -27, 3.7, 3, C.Black, MAT.Metal)
+
+    localPart(forge, "Anvil_Body",
+        Vector3.new(5, 1.6, 3),
+        forgeCF, -27, 5, 3, C.Metal, MAT.Metal)
+
+    localPart(forge, "Anvil_Horn",
+        Vector3.new(2.5, 1, 2),
+        forgeCF, -23.4, 5.1, 3, C.Metal, MAT.Metal)
+
+    -- Display weapons on stands.
+    for i = 1, 3 do
+        local x = -29 + (i - 1) * 8
+
+        localPart(forge, "Weapon_Stand",
+            Vector3.new(3.5, 1, 3.5),
+            forgeCF, x, 3.2, -1, C.Black, MAT.Metal)
+
+        swordDisplay(forge, forgeCF, x, 4, -1, 0.7)
+    end
+
+    -- Armor display on a raised pedestal.
+    armorDisplay(forge, forgeCF, -14, 3, 2)
+
+    sign(forge, forgeCF, "THE FORGE", -20, 17.2, -3.4, 15, 2.5)
+
+    -- Upper Code Gallery.
+    local gallery = newModel(base, "CODE_GALLERY")
+
+    -- Supports and floor.
+    for _, x in ipairs({-15, 15}) do
+        for _, z in ipairs({15, 29}) do
+            localPart(gallery, "Gallery_Support",
+                Vector3.new(2.5, 9, 2.5),
+                baseCF, x, 6.5, z, C.Black, MAT.Metal)
+        end
+    end
+
+    localPart(gallery, "Gallery_Floor",
+        Vector3.new(35, 1.5, 19),
+        baseCF, 0, 11, 22, C.StoneLight, MAT.Metal)
+
+    localPart(gallery, "Gallery_Back_Wall",
+        Vector3.new(35, 7, 1.5),
+        baseCF, 0, 15, 30.8, C.Black, MAT.Basalt)
+
+    localPart(gallery, "Gallery_Rune",
+        Vector3.new(1, 4.5, 0.4),
+        baseCF, 0, 15, 29.9, C.Purple, MAT.Neon, nil, 0, 0, 0, false)
+
+    -- Gallery railing with open sightlines.
+    for _, x in ipairs({-17, -8.5, 0, 8.5, 17}) do
+        localPart(gallery, "Gallery_Front_Rail",
+            Vector3.new(0.4, 1.5, 0.4),
+            baseCF, x, 12.5, 12.7, C.Gold, MAT.Metal)
+    end
+
+    localPart(gallery, "Gallery_Rail_Beam",
+        Vector3.new(35, 0.45, 0.45),
+        baseCF, 0, 13.2, 12.7, C.Gold, MAT.Metal)
+
+    -- Four display capsules, ready for future Code models.
+    for i = 1, 4 do
+        local x = -12 + (i - 1) * 8
+
+        localPart(gallery, "Code_Pedestal",
+            Vector3.new(4, 1.3, 4),
+            baseCF, x, 12.4, 22, C.Black, MAT.Metal)
+
+        local capsule = localPart(gallery, "Code_Display_Core",
+            Vector3.new(2.6, 4.5, 2.6),
+            baseCF, x, 15.1, 22, C.PurpleDark, MAT.Neon,
+            Enum.PartType.Ball, 0, 0, 0, false)
+
+        pointLight(capsule, C.Purple, 0.7, 8)
+
+        localPart(gallery, "Capsule_Ring",
+            Vector3.new(4.2, 0.3, 4.2),
+            baseCF, x, 13.4, 22, C.Gold, MAT.Neon,
+            Enum.PartType.Cylinder, 0, 0, 0, false)
+    end
+
+    sign(gallery, baseCF, "CODE GALLERY", 0, 19.2, 29.8, 18, 2.5)
+
+    -- Obby: a small personal course with increasing heights.
+    local obby = newModel(base, "FRACTURE_RUN")
+    local startX = 19
+    local startZ = 15
+
+    localPart(obby, "Obby_Entrance",
+        Vector3.new(10, 1, 8),
+        baseCF, startX, 2.8, startZ, C.Black, MAT.Metal)
+
+    sign(obby, baseCF, "FRACTURE RUN", startX, 7.5, startZ - 4.2, 11, 2)
+
+    for i = 1, CONFIG.ObbySteps do
+        local x = startX + ((i % 2 == 0) and -2 or 2)
+        local z = startZ - i * 5
+        local y = 3 + i * 1.4
+
+        local platform = localPart(obby, "Obby_Platform_" .. i,
+            Vector3.new(6, 1, 5),
+            baseCF, x, y, z, C.StoneLight, MAT.Metal)
+
+        localPart(obby, "Obby_Glow_" .. i,
+            Vector3.new(5, 0.15, 0.35),
+            baseCF, x, y + 0.6, z - 2.1,
+            (i % 2 == 0) and C.Purple or C.Red,
+            MAT.Neon, nil, 0, 0, 0, false)
+
+        if i < CONFIG.ObbySteps then
+            localPart(obby, "Obby_Side_Rune_" .. i,
+                Vector3.new(0.4, 1.4, 0.4),
+                baseCF, x + 3.1, y + 0.4, z,
+                C.Gold, MAT.Neon, nil, 0, 0, 0, false)
+        end
+    end
+
+    -- Final reward platform.
+    localPart(obby, "Obby_Reward_Platform",
+        Vector3.new(10, 1.5, 9),
+        baseCF, startX, 15, startZ - 43, C.RedDark, MAT.Metal)
+
+    local rewardGlow = localPart(obby, "Obby_Reward_Core",
+        Vector3.new(3, 3, 3),
+        baseCF, startX, 17.5, startZ - 43, C.Gold, MAT.Neon,
+        Enum.PartType.Ball, 0, 0, 0, false)
+
+    pointLight(rewardGlow, C.Gold, 1.2, 10)
+
+    -- Decorative rune pylons at the rear corners.
+    for _, x in ipairs({-25, 25}) do
+        local pylon = localPart(base, "Domain_Rune_Pylon",
+            Vector3.new(2, 9, 2),
+            baseCF, x, 6, 22, C.Black, MAT.Basalt)
+
+        localPart(base, "Pylon_Light",
+            Vector3.new(0.5, 5, 0.5),
+            baseCF, x, 6, 20.8, C.Purple, MAT.Neon, nil, 0, 0, 0, false)
+    end
+
+    -- Bridge from the base toward the central arena.
+    localPart(base, "Nexus_Bridge",
+        Vector3.new(12, 1.5, 100),
+        baseCF, 0, 0.1, -80, C.Stone, MAT.Slate)
+
+    for _, x in ipairs({-6, 6}) do
+        localPart(base, "Bridge_Edge",
+            Vector3.new(0.5, 0.5, 100),
+            baseCF, x, 1, -80, C.Gold, MAT.Neon, nil, 0, 0, 0, false)
+    end
+
+    -- Bridge lamps.
+    for i = 1, 5 do
+        local z = -38 - i * 16
+
+        local lamp = localPart(base, "Bridge_Lamp",
+            Vector3.new(1.4, 1.4, 1.4),
+            baseCF, 0, 2, z, C.Purple, MAT.Neon,
+            Enum.PartType.Ball, 0, 0, 0, false)
+
+        pointLight(lamp, C.Purple, 0.6, 9)
+    end
+
+    return base
+end
+
+--==================================================
+-- GENERATE ALL 20 BASES
+--==================================================
+
+for i = 1, CONFIG.BaseCount do
+    local angle = (i - 1) * (360 / CONFIG.BaseCount)
+    buildBase(i, angle)
+end
+
+--==================================================
+-- SPAWN / WORLD MARKER
+--==================================================
+
+-- Temporary central arrival marker.
+-- This is not the final player-spawn assignment system.
+local spawnMarker = part(
+    World, "Temporary_World_Entry",
+    Vector3.new(8, 1, 8),
+    CFrame.new(0, 5.5, 0),
+    C.Purple, MAT.Neon, Enum.PartType.Cylinder, false
+)
+
+pointLight(spawnMarker, C.Purple, 1.5, 16)
+
+print("====================================")
+print("CODE X WORLD GENERATED")
+print("Bases:", CONFIG.BaseCount)
+print("Central arena: READY")
+print("Forge / Code Gallery / Obby: READY")
+print("Note: gameplay systems are not yet connected.")
+print("====================================")
