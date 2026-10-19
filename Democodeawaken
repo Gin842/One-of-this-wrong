@@ -1,0 +1,22 @@
+
+-- Temporary Void Knight preview button
+local previewRemote = game:GetService("ReplicatedStorage"):WaitForChild("PreviewVoidKnight")
+
+local previewButton = Instance.new("TextButton")
+previewButton.Name = "PreviewVoidKnightButton"
+previewButton.Size = UDim2.fromOffset(200, 42)
+previewButton.Position = UDim2.new(1, -250, 1, -185)
+previewButton.BackgroundColor3 = Color3.fromRGB(35, 130, 160)
+previewButton.TextColor3 = Color3.new(1, 1, 1)
+previewButton.Text = "PREVIEW VOID KNIGHT"
+previewButton.TextSize = 14
+previewButton.Font = Enum.Font.GothamBold
+previewButton.Parent = gui
+
+local previewCorner = Instance.new("UICorner")
+previewCorner.CornerRadius = UDim.new(0, 8)
+previewCorner.Parent = previewButton
+
+previewButton.Activated:Connect(function()
+    previewRemote:FireServer()
+end)
