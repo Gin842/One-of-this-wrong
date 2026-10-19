@@ -1,0 +1,93 @@
+
+-- CINEMATIC PERSONA CAMERA
+local cinematicCameraRemote =
+	game:GetService("ReplicatedStorage"):WaitForChild("RPGEvent")
+
+local cinematicTweenService =
+	game:GetService("TweenService")
+
+local cinematicCamera = workspace.CurrentCamera
+local cinematicOriginalFOV = cinematicCamera.FieldOfView
+local cinematicActive = false
+
+local function startPersonaCamera()
+	if cinematicActive then return end
+	cinematicActive = true
+
+	local character = game.Players.LocalPlayer.Character
+	if not character then
+		cinematicActive = false
+		return
+	end
+
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		cinematicActive = false
+		return
+	end
+
+	cinematicCamera = workspace.CurrentCamera
+	cinematicCamera.CameraType = Enum.CameraType.Scriptable
+
+	local focusPosition = root.Position + Vector3.new(0, 2, 0)
+	local cameraPosition =
+		root.Position - root.CFrame.LookVector * 7
+		+ Vector3.new(0, 3, 0)
+
+	local targetCFrame = CFrame.lookAt(cameraPosition, focusPosition)
+
+	local cameraTween = cinematicTweenService:Create(
+		cinematicCamera,
+		TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+		{CFrame = targetCFrame}
+	)
+
+	cameraTween:Play()
+
+	cinematicTweenService:Create(
+		cinematicCamera,
+		TweenInfo.new(0.35),
+		{FieldOfView = 58}
+	):Play()
+end
+
+local function endPersonaCamera()
+	if not cinematicActive then return end
+	cinematicActive = false
+
+	cinematicCamera = workspace.CurrentCamera
+
+	cinematicTweenService:Create(
+		cinematicCamera,
+		TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+		{FieldOfView = cinematicOriginalFOV}
+	):Play()
+
+	cinematicCamera.CameraType = Enum.CameraType.Custom
+
+	local character = game.Players.LocalPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+	if humanoid then
+		cinematicCamera.CameraSubject = humanoid
+	end
+end
+
+cinematicCameraRemote.OnClientEvent:Connect(function(action)
+	if action == "CinematicStart" then
+		startPersonaCamera()
+	elseif action == "CinematicImpact" then
+		if cinematicActive then
+			cinematicCamera.FieldOfView = 52
+			cinematicTweenService:Create(
+				cinematicCamera,
+				TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+				{FieldOfView = 58}
+			):Play()
+		end
+	elseif action == "CinematicEnd" then
+		endPersonaCamera()
+	elseif action == "Notice" then
+		-- Keep your existing Notice handler unchanged.
+	end
+end)
