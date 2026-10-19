@@ -1,0 +1,230 @@
+
+-- VOID KNIGHT | Original Persona Visual
+-- Creates a detailed, lightweight summon beside the player.
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local PURPLE = Color3.fromRGB(91, 37, 177)
+local DARK = Color3.fromRGB(27, 20, 43)
+local CYAN = Color3.fromRGB(40, 225, 255)
+
+local function makePart(parent, name, size, cf, color, material, shape)
+    local p = Instance.new("Part")
+    p.Name = name
+    p.Size = size
+    p.CFrame = cf
+    p.Color = color
+    p.Material = material or Enum.Material.SmoothPlastic
+    p.Anchored = true
+    p.CanCollide = false
+    p.CanTouch = false
+    p.CanQuery = false
+    p.CastShadow = true
+    p.TopSurface = Enum.SurfaceType.Smooth
+    p.BottomSurface = Enum.SurfaceType.Smooth
+
+    if shape then
+        p.Shape = shape
+    end
+
+    p.Parent = parent
+    return p
+end
+
+local function buildVoidKnight(player)
+    local character = player.Character
+    if not character then return end
+
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    -- Remove an earlier copy belonging to this player.
+    local old = workspace:FindFirstChild("VoidKnight_" .. player.UserId)
+    if old then old:Destroy() end
+
+    local model = Instance.new("Model")
+    model.Name = "VoidKnight_" .. player.UserId
+    model.Parent = workspace
+
+    -- Position it beside the player, facing the same direction.
+    local base = root.CFrame * CFrame.new(4, 0, 0)
+    local parts = {}
+
+    local function piece(name, size, offset, color, material, shape, rotation)
+        local cf = base * CFrame.new(offset)
+        if rotation then
+            cf = cf * CFrame.Angles(
+                math.rad(rotation.X),
+                math.rad(rotation.Y),
+                math.rad(rotation.Z)
+            )
+        end
+
+        local p = makePart(
+            model, name, size, cf, color, material, shape
+        )
+        table.insert(parts, p)
+        return p
+    end
+
+    -- Legs and armored boots
+    piece("LeftBoot", Vector3.new(0.8, 0.65, 1.05),
+        Vector3.new(-0.48, 0.35, -0.05), DARK, Enum.Material.Metal)
+    piece("RightBoot", Vector3.new(0.8, 0.65, 1.05),
+        Vector3.new(0.48, 0.35, -0.05), DARK, Enum.Material.Metal)
+
+    piece("LeftGreave", Vector3.new(0.65, 1.15, 0.7),
+        Vector3.new(-0.48, 1.15, 0), PURPLE, Enum.Material.Metal)
+    piece("RightGreave", Vector3.new(0.65, 1.15, 0.7),
+        Vector3.new(0.48, 1.15, 0), PURPLE, Enum.Material.Metal)
+
+    -- Torso armor and chest core
+    piece("LowerArmor", Vector3.new(1.45, 0.7, 0.8),
+        Vector3.new(0, 1.95, 0), DARK, Enum.Material.Metal)
+
+    piece("ChestArmor", Vector3.new(1.7, 1.25, 0.85),
+        Vector3.new(0, 2.8, 0), PURPLE, Enum.Material.Metal)
+
+    piece("ChestCore", Vector3.new(0.42, 0.42, 0.16),
+        Vector3.new(0, 2.85, -0.48), CYAN, Enum.Material.Neon,
+        Enum.PartType.Ball)
+
+    -- Shoulder plates
+    piece("LeftShoulder", Vector3.new(0.95, 0.85, 0.9),
+        Vector3.new(-1.15, 3.35, 0), DARK, Enum.Material.Metal)
+    piece("RightShoulder", Vector3.new(0.95, 0.85, 0.9),
+        Vector3.new(1.15, 3.35, 0), DARK, Enum.Material.Metal)
+
+    piece("LeftShoulderGlow", Vector3.new(0.65, 0.12, 0.12),
+        Vector3.new(-1.15, 3.35, -0.47), PURPLE, Enum.Material.Neon)
+    piece("RightShoulderGlow", Vector3.new(0.65, 0.12, 0.12),
+        Vector3.new(1.15, 3.35, -0.47), PURPLE, Enum.Material.Neon)
+
+    -- Arms
+    piece("LeftArm", Vector3.new(0.52, 1.25, 0.6),
+        Vector3.new(-1.15, 2.45, 0), PURPLE, Enum.Material.Metal)
+    piece("RightArm", Vector3.new(0.52, 1.25, 0.6),
+        Vector3.new(1.15, 2.45, 0), PURPLE, Enum.Material.Metal)
+
+    piece("LeftGauntlet", Vector3.new(0.6, 0.48, 0.65),
+        Vector3.new(-1.15, 1.8, -0.03), DARK, Enum.Material.Metal)
+    piece("RightGauntlet", Vector3.new(0.6, 0.48, 0.65),
+        Vector3.new(1.15, 1.8, -0.03), DARK, Enum.Material.Metal)
+
+    -- Helmet, horns and glowing eyes
+    piece("Helmet", Vector3.new(1.15, 1.2, 1.05),
+        Vector3.new(0, 3.95, 0), DARK, Enum.Material.Metal)
+
+    piece("HelmetCrown", Vector3.new(0.72, 0.35, 0.8),
+        Vector3.new(0, 4.65, 0), PURPLE, Enum.Material.Metal)
+
+    piece("LeftHorn", Vector3.new(0.22, 0.75, 0.25),
+        Vector3.new(-0.48, 4.65, 0.08), PURPLE, Enum.Material.Neon,
+        nil, Vector3.new(0, 0, -22))
+
+    piece("RightHorn", Vector3.new(0.22, 0.75, 0.25),
+        Vector3.new(0.48, 4.65, 0.08), PURPLE, Enum.Material.Neon,
+        nil, Vector3.new(0, 0, 22))
+
+    piece("LeftEye", Vector3.new(0.3, 0.1, 0.08),
+        Vector3.new(-0.25, 4.02, -0.54), CYAN, Enum.Material.Neon)
+    piece("RightEye", Vector3.new(0.3, 0.1, 0.08),
+        Vector3.new(0.25, 4.02, -0.54), CYAN, Enum.Material.Neon)
+
+    -- Floating energy shards behind the shoulders
+    piece("LeftShard", Vector3.new(0.2, 1.15, 0.2),
+        Vector3.new(-1.25, 4.1, 0.55), PURPLE, Enum.Material.Neon,
+        nil, Vector3.new(0, 0, -28))
+    piece("RightShard", Vector3.new(0.2, 1.15, 0.2),
+        Vector3.new(1.25, 4.1, 0.55), PURPLE, Enum.Material.Neon,
+        nil, Vector3.new(0, 0, 28))
+
+    -- A low-energy summoning ring under its feet.
+    local ring = piece(
+        "SummonRing",
+        Vector3.new(0.15, 4.8, 4.8),
+        Vector3.new(0, 0.12, 0),
+        CYAN,
+        Enum.Material.Neon,
+        Enum.PartType.Cylinder,
+        Vector3.new(0, 0, 90)
+    )
+    ring.Transparency = 0.25
+
+    local light = Instance.new("PointLight")
+    light.Color = PURPLE
+    light.Brightness = 1.5
+    light.Range = 10
+    light.Parent = model:FindFirstChild("ChestCore")
+
+    -- Materialize smoothly from transparent.
+    for _, p in ipairs(parts) do
+        p.Transparency = 1
+        TweenService:Create(
+            p,
+            TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Transparency = 0}
+        ):Play()
+    end
+
+    ring.Transparency = 1
+    TweenService:Create(
+        ring,
+        TweenInfo.new(0.4),
+        {Transparency = 0.3}
+    ):Play()
+
+    -- Keep the visual briefly, then fade it away.
+    task.delay(2.5, function()
+        if not model.Parent then return end
+
+        for _, p in ipairs(model:GetDescendants()) do
+            if p:IsA("BasePart") then
+                TweenService:Create(
+                    p,
+                    TweenInfo.new(0.45),
+                    {Transparency = 1}
+                ):Play()
+            elseif p:IsA("PointLight") then
+                TweenService:Create(
+                    p,
+                    TweenInfo.new(0.4),
+                    {Brightness = 0}
+                ):Play()
+            end
+        end
+
+        Debris:AddItem(model, 0.6)
+    end)
+end
+
+-- Temporary test: press E to preview the visual.
+-- This is deliberately separate from the existing ability script.
+local testEvent = game:GetService("ReplicatedStorage"):FindFirstChild("PreviewVoidKnight")
+if not testEvent then
+    testEvent = Instance.new("RemoteEvent")
+    testEvent.Name = "PreviewVoidKnight"
+    testEvent.Parent = game:GetService("ReplicatedStorage")
+end
+
+local cooldowns = {}
+
+testEvent.OnServerEvent:Connect(function(player)
+    local now = os.clock()
+    if cooldowns[player] and now - cooldowns[player] < 4 then
+        return
+    end
+
+    cooldowns[player] = now
+    buildVoidKnight(player)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    cooldowns[player] = nil
+    local model = workspace:FindFirstChild("VoidKnight_" .. player.UserId)
+    if model then model:Destroy() end
+end)
+
+print("Void Knight visual loaded")
