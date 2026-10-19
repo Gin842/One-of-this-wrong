@@ -1,0 +1,186 @@
+
+local function summon(player)
+    if busy[player] then return end
+
+    local character = player.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    if not root or not humanoid or humanoid.Health <= 0 then return end
+
+    local mp = player:GetAttribute("MP") or 100
+    if mp < 20 then
+        remote:FireClient(player, "Notice", "Not enough MP!")
+        return
+    end
+
+    busy[player] = true
+    player:SetAttribute("MP", mp - 20)
+
+    local index = player:GetAttribute("PersonaIndex") or 1
+    local names = {"VoidKnight", "StarWarden", "CrimsonReaper"}
+    local colors = {
+        Color3.fromRGB(155, 55, 255),
+        Color3.fromRGB(45, 220, 255),
+        Color3.fromRGB(255, 45, 80)
+    }
+
+    local color = colors[index]
+    local model = Instance.new("Model")
+    model.Name = names[index] .. "_Cinematic"
+    model.Parent = world
+
+    -- Position the summon beside and slightly behind the player.
+    local base = root.CFrame * CFrame.new(4, 0, -3)
+
+    local function makeEffect(name, size, cf, material, transparency)
+        local p = Instance.new("Part")
+        p.Name = name
+        p.Size = size
+        p.CFrame = cf
+        p.Anchored = true
+        p.CanCollide = false
+        p.CastShadow = false
+        p.Material = material or Enum.Material.Neon
+        p.Color = color
+        p.Transparency = transparency or 0
+        p.Parent = model
+        return p
+    end
+
+    -- Summoning circle on the ground.
+    local circle = makeEffect(
+        "SummoningCircle",
+        Vector3.new(0.2, 8, 8),
+        base * CFrame.new(0, 0.25, 0)
+            * CFrame.Angles(0, 0, math.rad(90)),
+        Enum.Material.Neon,
+        0.25
+    )
+    circle.Shape = Enum.PartType.Cylinder
+
+    local lightPart = makeEffect(
+        "EnergyCore",
+        Vector3.new(1, 1, 1),
+        base * CFrame.new(0, 3, 0),
+        Enum.Material.Neon,
+        0.1
+    )
+    lightPart.Shape = Enum.PartType.Ball
+
+    local light = Instance.new("PointLight")
+    light.Color = color
+    light.Brightness = 0
+    light.Range = 18
+    light.Parent = lightPart
+
+    -- Original stylized summon silhouette.
+    local pieces = {}
+
+    local function revealPart(name, size, offset, transparency)
+        local p = makeEffect(
+            name,
+            size,
+            base * CFrame.new(offset),
+            Enum.Material.Neon,
+            1
+        )
+        table.insert(pieces, {part = p, transparency = transparency or 0})
+        return p
+    end
+
+    revealPart("Torso", Vector3.new(2.4, 3.2, 1.3), Vector3.new(0, 3.7, 0))
+    revealPart("Head", Vector3.new(1.7, 1.7, 1.5), Vector3.new(0, 6.2, 0))
+    revealPart("ShoulderL", Vector3.new(1.5, 1.1, 1.3), Vector3.new(-1.7, 4.8, 0))
+    revealPart("ShoulderR", Vector3.new(1.5, 1.1, 1.3), Vector3.new(1.7, 4.8, 0))
+    revealPart("ArmL", Vector3.new(0.7, 2.4, 0.8), Vector3.new(-1.6, 3, 0))
+    revealPart("ArmR", Vector3.new(0.7, 2.4, 0.8), Vector3.new(1.6, 3, 0))
+    revealPart("LegL", Vector3.new(0.8, 2.1, 0.9), Vector3.new(-0.65, 1.1, 0))
+    revealPart("LegR", Vector3.new(0.8, 2.1, 0.9), Vector3.new(0.65, 1.1, 0))
+
+    -- Each Persona gets its own signature.
+    if index == 1 then
+        revealPart("HornL", Vector3.new(0.35, 1.8, 0.35), Vector3.new(-0.7, 7.5, 0))
+        revealPart("HornR", Vector3.new(0.35, 1.8, 0.35), Vector3.new(0.7, 7.5, 0))
+    elseif index == 2 then
+        revealPart("WingL", Vector3.new(0.5, 3.8, 2.4), Vector3.new(-2.2, 4.4, 0.4))
+        revealPart("WingR", Vector3.new(0.5, 3.8, 2.4), Vector3.new(2.2, 4.4, 0.4))
+        revealPart("Halo", Vector3.new(3.1, 0.2, 3.1), Vector3.new(0, 7.8, 0))
+    else
+        revealPart("Blade", Vector3.new(0.35, 4.8, 0.4), Vector3.new(2.2, 3.4, 0))
+        revealPart("Crest", Vector3.new(2, 0.4, 0.5), Vector3.new(0, 7.1, 0))
+    end
+
+    -- Eyes face forward, toward the player's forward direction.
+    revealPart("EyeL", Vector3.new(0.35, 0.18, 0.12), Vector3.new(-0.38, 6.3, -0.78))
+    revealPart("EyeR", Vector3.new(0.35, 0.18, 0.12), Vector3.new(0.38, 6.3, -0.78))
+
+    remote:FireClient(player, "CinematicStart", names[index])
+
+    -- Build-up: glow and circle expand.
+    TweenService:Create(light, TweenInfo.new(0.45), {
+        Brightness = 3
+    }):Play()
+
+    TweenService:Create(circle, TweenInfo.new(0.65, Enum.EasingStyle.Back), {
+        Size = Vector3.new(0.2, 12, 12),
+        Transparency = 0.05
+    }):Play()
+
+    TweenService:Create(lightPart, TweenInfo.new(0.45), {
+        Size = Vector3.new(3, 3, 3)
+    }):Play()
+
+    task.wait(0.5)
+
+    -- Reveal each piece with a small rising motion.
+    for _, item in ipairs(pieces) do
+        local p = item.part
+        local target = p.CFrame
+        p.CFrame = target * CFrame.new(0, -1.5, 0)
+
+        TweenService:Create(p, TweenInfo.new(0.4, Enum.EasingStyle.Back), {
+            CFrame = target,
+            Transparency = item.transparency
+        }):Play()
+    end
+
+    task.wait(0.55)
+
+    -- Eyes glow and the energy burst peaks.
+    for _, item in ipairs(pieces) do
+        if item.part.Name == "EyeL" or item.part.Name == "EyeR" then
+            item.part.Material = Enum.Material.Neon
+            item.part.Color = Color3.new(1, 1, 1)
+        end
+    end
+
+    remote:FireClient(player, "CinematicImpact", names[index])
+
+    task.wait(2.2)
+
+    -- Fade away cleanly.
+    for _, item in ipairs(pieces) do
+        if item.part.Parent then
+            TweenService:Create(item.part, TweenInfo.new(0.55), {
+                Transparency = 1
+            }):Play()
+        end
+    end
+
+    TweenService:Create(circle, TweenInfo.new(0.55), {
+        Transparency = 1
+    }):Play()
+
+    TweenService:Create(lightPart, TweenInfo.new(0.55), {
+        Transparency = 1
+    }):Play()
+
+    TweenService:Create(light, TweenInfo.new(0.4), {
+        Brightness = 0
+    }):Play()
+
+    task.wait(0.65)
+    model:Destroy()
+    remote:FireClient(player, "CinematicEnd")
+    busy[player] = nil
+end
