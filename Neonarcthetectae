@@ -1,0 +1,430 @@
+
+-- NEON DISTRICT: ORIGINAL ARCHITECTURE
+-- Preserves NeonDistrictServer, NeonDistrictClient and Persona systems.
+-- Builds a separate architectural district using the existing weapon shop door
+-- as the location and orientation reference.
+
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+
+local world
+for _ = 1, 60 do
+	world = Workspace:FindFirstChild("NeonDistrict")
+	if world then break end
+	task.wait(0.5)
+end
+
+if not world then
+	warn("Architecture: NeonDistrict was not found.")
+	return
+end
+
+local shop = world:FindFirstChild("WeaponShop", true)
+local door = shop and shop:FindFirstChild("Door", true)
+
+if not door or not door:IsA("BasePart") then
+	warn("Architecture: WeaponShop Door must be a BasePart.")
+	return
+end
+
+local old = world:FindFirstChild("NeonDistrictArchitecture")
+if old then old:Destroy() end
+
+local district = Instance.new("Folder")
+district.Name = "NeonDistrictArchitecture"
+district.Parent = world
+
+-- Palette: midnight ink, ceramic white, cyan, plum and warm amber.
+local C = {
+	ink = Color3.fromRGB(17, 20, 34),
+	wall = Color3.fromRGB(37, 43, 61),
+	wall2 = Color3.fromRGB(54, 59, 81),
+	ceramic = Color3.fromRGB(102, 111, 133),
+	cyan = Color3.fromRGB(53, 229, 255),
+	plum = Color3.fromRGB(178, 72, 255),
+	red = Color3.fromRGB(255, 76, 112),
+	amber = Color3.fromRGB(255, 190, 100),
+	glass = Color3.fromRGB(35, 107, 132),
+	road = Color3.fromRGB(24, 27, 39),
+	stone = Color3.fromRGB(54, 58, 75),
+}
+
+-- Use the front of the existing shop as our orientation reference.
+-- Roblox front direction is local -Z.
+local origin = door.CFrame
+
+local function cf(x, y, z, yaw)
+	return origin
+		* CFrame.new(x, y, z)
+		* CFrame.Angles(0, math.rad(yaw or 0), 0)
+end
+
+local function part(parent, name, size, frame, color, material, collide)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = frame
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	p.Anchored = true
+	p.CanCollide = collide == true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.CastShadow = true
+	p.Parent = parent
+	return p
+end
+
+local function glow(parent, name, size, frame, color)
+	local p = part(parent, name, size, frame, color, Enum.Material.Neon, false)
+	p.CastShadow = false
+	return p
+end
+
+local function lamp(p, color, brightness, range)
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Brightness = brightness or 1
+	light.Range = range or 12
+	light.Shadows = false
+	light.Parent = p
+end
+
+local function sign(parent, text, size, frame, color)
+	local plate = part(
+		parent, "CalligraphySign",
+		Vector3.new(size.X, size.Y, 0.22),
+		frame, C.ink, Enum.Material.Metal, false
+	)
+
+	local surface = Instance.new("SurfaceGui")
+	surface.Face = Enum.NormalId.Front
+	surface.CanvasSize = Vector2.new(600, 180)
+	surface.LightInfluence = 0
+	surface.Parent = plate
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = color
+	label.TextStrokeTransparency = 0.45
+	label.Font = Enum.Font.GothamBlack
+	label.TextScaled = true
+	label.Parent = surface
+
+	local edge = glow(
+		parent, "SignEdge",
+		Vector3.new(size.X + 0.12, 0.06, 0.07),
+		frame * CFrame.new(0, -size.Y / 2 - 0.04, -0.14),
+		color
+	)
+	lamp(edge, color, 0.45, 7)
+	return plate
+end
+
+-- Every building gets a distinct silhouette, layered facade,
+-- window bays, projecting ledges and a roofline.
+local function building(name, x, z, width, height, depth, yaw, variant)
+	local model = Instance.new("Model")
+	model.Name = name
+	model.Parent = district
+
+	local b = cf(x, 0, z, yaw)
+
+	local function B(px, py, pz)
+		return b * CFrame.new(px, py, pz)
+	end
+
+	-- Main building mass.
+	part(model, "MainStructure",
+		Vector3.new(width, height, depth),
+		B(0, height / 2, 0),
+		variant == 2 and C.wall2 or C.wall,
+		Enum.Material.Concrete, true)
+
+	-- Heavy lower floor.
+	part(model, "StonePodium",
+		Vector3.new(width + 1.2, 1.1, depth + 0.8),
+		B(0, 0.55, 0),
+		C.stone, Enum.Material.Slate, true)
+
+	-- Offset upper tower gives a less box-like silhouette.
+	local towerWidth = width * 0.52
+	local towerDepth = depth * 0.62
+	local towerHeight = height * 0.24
+	local towerX = variant == 2 and width * 0.17 or -width * 0.13
+
+	part(model, "OffsetUpperTower",
+		Vector3.new(towerWidth, towerHeight, towerDepth),
+		B(towerX, height + towerHeight / 2 - 0.3, 0),
+		C.wall2, Enum.Material.Concrete, true)
+
+	-- Layered roof: broad eaves plus raised roof cap.
+	part(model, "RoofEaves",
+		Vector3.new(width + 2.6, 0.38, depth + 2.2),
+		B(0, height + 0.15, 0),
+		C.ink, Enum.Material.Metal, false)
+
+	part(model, "RoofCap",
+		Vector3.new(towerWidth + 1.1, 0.32, towerDepth + 1.1),
+		B(towerX, height + towerHeight + 0.08, 0),
+		variant == 3 and C.red or C.ceramic,
+		Enum.Material.Metal, false)
+
+	-- Decorative roof fins.
+	for i = -1, 1 do
+		part(model, "RoofFin",
+			Vector3.new(0.16, 1.2, depth * 0.6),
+			B(towerX + i * (towerWidth * 0.3), height + towerHeight + 0.75, 0),
+			C.ink, Enum.Material.Metal, false)
+	end
+
+	-- Front face detail and window rhythm.
+	local bays = math.max(3, math.floor(width / 4))
+	local usable = width * 0.82
+	local spacing = usable / bays
+	local windowY = math.min(height * 0.42, 6)
+
+	for row = 0, 1 do
+		local wy = 3 + row * math.min(5, height * 0.32)
+		if wy < height - 1 then
+			for i = 1, bays - 1 do
+				local wx = -usable / 2 + i * spacing
+
+				-- Recessed dark frame.
+				part(model, "WindowFrame",
+					Vector3.new(1.35, 1.9, 0.22),
+					B(wx, wy, -depth / 2 - 0.13),
+					C.ink, Enum.Material.Metal, false)
+
+				-- Luminous window glass.
+				local window = part(model, "WindowGlass",
+					Vector3.new(1.05, 1.55, 0.08),
+					B(wx, wy, -depth / 2 - 0.26),
+					(variant + row + i) % 3 == 0 and C.amber or C.glass,
+					Enum.Material.Neon, false)
+				window.CastShadow = false
+
+				-- Thin sill below each window.
+				part(model, "WindowSill",
+					Vector3.new(1.55, 0.12, 0.38),
+					B(wx, wy - 1.02, -depth / 2 - 0.25),
+					C.ceramic, Enum.Material.Metal, false)
+			end
+		end
+	end
+
+	-- Vertical facade fins.
+	for i = -1, 1 do
+		part(model, "FacadeRib",
+			Vector3.new(0.22, height - 1.5, 0.28),
+			B(i * width * 0.32, height / 2 + 0.3, -depth / 2 - 0.2),
+			C.ceramic, Enum.Material.Metal, false)
+	end
+
+	-- Main horizontal illuminated belt.
+	local beltColor = variant == 1 and C.cyan
+		or variant == 2 and C.plum or C.red
+
+	local belt = glow(model, "ArchitectureLightBand",
+		Vector3.new(width + 0.4, 0.12, 0.12),
+		B(0, height * 0.66, -depth / 2 - 0.32),
+		beltColor)
+	belt.CastShadow = false
+
+	-- Entry canopy.
+	part(model, "EntryCanopy",
+		Vector3.new(width * 0.52, 0.3, 2.2),
+		B(0, 2.7, -depth / 2 - 1.1),
+		C.ink, Enum.Material.Metal, false)
+
+	local canopyLine = glow(model, "CanopyLight",
+		Vector3.new(width * 0.48, 0.08, 0.08),
+		B(0, 2.52, -depth / 2 - 2.1),
+		beltColor)
+	canopyLine.CastShadow = false
+
+	-- Storefront glazing and door.
+	part(model, "StorefrontGlass",
+		Vector3.new(width * 0.48, 2.15, 0.12),
+		B(0, 1.45, -depth / 2 - 0.18),
+		C.glass, Enum.Material.Glass, false)
+
+	part(model, "StorefrontFrame",
+		Vector3.new(width * 0.51, 2.4, 0.18),
+		B(0, 1.45, -depth / 2 - 0.3),
+		C.ceramic, Enum.Material.Metal, false)
+
+	sign(model, name == "DistrictArsenal" and "ARSENAL / 武器"
+		or name == "DistrictMarket" and "NIGHT MARKET / 夜市"
+		or name == "DistrictArchive" and "MEMORY ARCHIVE / 記録"
+		or "NEON DISTRICT / ネオン街",
+		Vector2.new(width * 0.72, 1.05),
+		B(0, height * 0.78, -depth / 2 - 0.5),
+		beltColor)
+
+	-- A few corner lamps, not one light per window.
+	for _, side in ipairs({-1, 1}) do
+		local lantern = glow(model, "CornerLantern",
+			Vector3.new(0.22, 1.4, 0.22),
+			B(side * (width / 2 - 0.5), 3.6, -depth / 2 - 0.4),
+			beltColor)
+		lamp(lantern, beltColor, 0.65, 8)
+	end
+
+	return model
+end
+
+-- Main avenue lies in front of the existing weapon shop.
+-- The shop remains intact behind the new street.
+part(district, "MidnightAvenue",
+	Vector3.new(120, 0.5, 18),
+	cf(0, -3.0, -25),
+	C.road, Enum.Material.Asphalt, true)
+
+-- Sidewalks, raised curbs and pavement tiles.
+for _, side in ipairs({-1, 1}) do
+	part(district, "RaisedSidewalk",
+		Vector3.new(120, 0.7, 5),
+		cf(0, -2.55, -25 + side * 11.3),
+		C.stone, Enum.Material.Concrete, true)
+
+	part(district, "CurbHighlight",
+		Vector3.new(120, 0.12, 0.18),
+		cf(0, -2.15, -25 + side * 8.8),
+		side == -1 and C.cyan or C.plum,
+		Enum.Material.Neon, false)
+
+	-- Sidewalk tile seams.
+	for x = -55, 55, 5 do
+		part(district, "PavementSeam",
+			Vector3.new(0.045, 0.025, 4.7),
+			cf(x, -2.18, -25 + side * 11.3),
+			C.ceramic, Enum.Material.Slate, false)
+	end
+end
+
+-- Lane divider and short crosswalk bars.
+part(district, "LaneDivider",
+	Vector3.new(116, 0.035, 0.12),
+	cf(0, -2.73, -25),
+	C.amber, Enum.Material.Neon, false)
+
+for x = -18, 18, 4 do
+	part(district, "CrosswalkStripe",
+		Vector3.new(2.2, 0.04, 6.0),
+		cf(x, -2.72, -31.8),
+		C.ceramic, Enum.Material.Concrete, false)
+end
+
+-- Japanese-inspired street lanterns.
+for x = -48, 48, 16 do
+	for _, side in ipairs({-1, 1}) do
+		local z = -25 + side * 15.2
+		part(district, "LanternFoot",
+			Vector3.new(0.9, 0.3, 0.9),
+			cf(x, -2.0, z), C.ink, Enum.Material.Metal, true)
+
+		part(district, "LanternPost",
+			Vector3.new(0.22, 5.5, 0.22),
+			cf(x, 0.75, z), C.ink, Enum.Material.Metal, false)
+
+		local hood = part(district, "LanternHood",
+			Vector3.new(1.4, 0.3, 1.0),
+			cf(x, 3.65, z), C.ink, Enum.Material.Metal, false)
+
+		local lightPanel = glow(district, "LanternPanel",
+			Vector3.new(0.9, 0.75, 0.65),
+			cf(x, 3.1, z),
+			(x / 16) % 2 == 0 and C.cyan or C.plum)
+		lamp(lightPanel, lightPanel.Color, 0.9, 13)
+	end
+end
+
+-- Four distinct architectural silhouettes around the avenue.
+building("DistrictArsenal", -31, -45, 18, 17, 13, 0, 1)
+building("DistrictMarket", 31, -45, 21, 14, 14, 0, 2)
+building("DistrictArchive", -31, -5, 17, 21, 13, 180, 3)
+building("DistrictGateway", 31, -5, 19, 18, 14, 180, 1)
+
+-- A landmark gate at the end of the avenue.
+local gateZ = -62
+
+part(district, "GatewayLeftPillar",
+	Vector3.new(3.0, 13, 2.5),
+	cf(-12, 3.5, gateZ), C.ink, Enum.Material.Slate, true)
+
+part(district, "GatewayRightPillar",
+	Vector3.new(3.0, 13, 2.5),
+	cf(12, 3.5, gateZ), C.ink, Enum.Material.Slate, true)
+
+part(district, "GatewayLintel",
+	Vector3.new(27, 2.0, 3.0),
+	cf(0, 10.5, gateZ), C.wall2, Enum.Material.Metal, true)
+
+glow(district, "GatewayCyanRunes",
+	Vector3.new(20, 0.12, 0.12),
+	cf(0, 9.25, gateZ - 1.55), C.cyan)
+
+glow(district, "GatewayPurpleRunes",
+	Vector3.new(13, 0.12, 0.12),
+	cf(0, 8.85, gateZ - 1.55), C.plum)
+
+-- Raised circular plaza with concentric rings.
+local plazaZ = -78
+
+local plaza = part(district, "PersonaPlaza",
+	Vector3.new(30, 0.8, 30),
+	cf(0, -2.1, plazaZ), C.ink, Enum.Material.Slate, true)
+
+for i, radius in ipairs({12, 9, 6}) do
+	local ring = glow(district, "PlazaEnergyRing",
+		Vector3.new(radius * 2, 0.07, 0.18),
+		cf(0, -1.65 + i * 0.025, plazaZ),
+		i == 2 and C.plum or C.cyan)
+	ring.Shape = Enum.PartType.Cylinder
+	ring.CFrame = ring.CFrame * CFrame.Angles(0, 0, math.rad(90))
+end
+
+-- Landmark monolith; no gameplay scripts or remotes are touched.
+part(district, "DistrictMonolithBase",
+	Vector3.new(7, 1.0, 7),
+	cf(0, -1.45, plazaZ), C.wall2, Enum.Material.Metal, true)
+
+local monolith = part(district, "DistrictMonolith",
+	Vector3.new(2.8, 9, 2.8),
+	cf(0, 3.5, plazaZ), C.ink, Enum.Material.Slate, true)
+
+glow(district, "MonolithFrontSigil",
+	Vector3.new(1.5, 5.5, 0.08),
+	cf(0, 3.6, plazaZ - 1.45), C.plum)
+
+local crown = glow(district, "MonolithCrown",
+	Vector3.new(4.4, 0.18, 4.4),
+	cf(0, 8.1, plazaZ), C.cyan)
+lamp(crown, C.cyan, 1.1, 18)
+
+-- Subtle animated landmark glow.
+task.spawn(function()
+	while district.Parent do
+		local up = TweenService:Create(
+			crown,
+			TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+			{Transparency = 0.25}
+		)
+		up:Play()
+		up.Completed:Wait()
+		if not district.Parent then break end
+
+		local down = TweenService:Create(
+			crown,
+			TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+			{Transparency = 0}
+		)
+		down:Play()
+		down.Completed:Wait()
+	end
+end)
+
+print("NEON DISTRICT ARCHITECTURE BUILT")
