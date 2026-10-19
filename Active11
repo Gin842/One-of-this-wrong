@@ -1,0 +1,98 @@
+
+-- AwakeningDemoClient
+-- Ability button + E key + lightweight UI
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local remote = ReplicatedStorage:WaitForChild("AwakenPower")
+
+local COOLDOWN = 5
+local ready = true
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "AwakeningDemoUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local panel = Instance.new("Frame")
+panel.Name = "AbilityPanel"
+panel.Size = UDim2.fromOffset(230, 105)
+panel.Position = UDim2.new(1, -250, 1, -135)
+panel.BackgroundColor3 = Color3.fromRGB(19, 16, 32)
+panel.BackgroundTransparency = 0.12
+panel.BorderSizePixel = 0
+panel.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = panel
+
+local outline = Instance.new("UIStroke")
+outline.Color = Color3.fromRGB(145, 80, 255)
+outline.Thickness = 2
+outline.Parent = panel
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -20, 0, 30)
+title.Position = UDim2.fromOffset(10, 5)
+title.BackgroundTransparency = 1
+title.Text = "VOID KNIGHT"
+title.TextColor3 = Color3.fromRGB(205, 170, 255)
+title.TextSize = 17
+title.Font = Enum.Font.GothamBold
+title.Parent = panel
+
+local button = Instance.new("TextButton")
+button.Name = "AwakenButton"
+button.Size = UDim2.new(1, -20, 0, 48)
+button.Position = UDim2.fromOffset(10, 43)
+button.BackgroundColor3 = Color3.fromRGB(92, 45, 165)
+button.BorderSizePixel = 0
+button.Text = "AWAKEN  [E]"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.TextSize = 18
+button.Font = Enum.Font.GothamBold
+button.AutoButtonColor = true
+button.Parent = panel
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 8)
+buttonCorner.Parent = button
+
+local function activateAbility()
+    if not ready then
+        return
+    end
+
+    ready = false
+    remote:FireServer()
+
+    button.Text = "ENERGY RECHARGING..."
+    button.BackgroundColor3 = Color3.fromRGB(45, 40, 65)
+
+    for remaining = COOLDOWN, 1, -1 do
+        task.wait(1)
+        button.Text = "RECHARGING  " .. remaining .. "s"
+    end
+
+    ready = true
+    button.Text = "AWAKEN  [E]"
+    button.BackgroundColor3 = Color3.fromRGB(92, 45, 165)
+end
+
+button.Activated:Connect(activateAbility)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then
+        return
+    end
+
+    if input.KeyCode == Enum.KeyCode.E then
+        activateAbility()
+    end
+end)
+
+print("Awakening demo UI ready")
