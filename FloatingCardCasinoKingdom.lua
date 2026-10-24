@@ -805,40 +805,60 @@ local function buildArena(A)
 		gateArch(par, p, V3(math.cos(g[1]), 0, math.sin(g[1])) * -1, 12, "♦")
 	end
 
-	-- ---------- duel stations (one table + two opposing chairs)
-	local K = 12
+	-- ---------- duel stations: N players per side (1v1, 2v2, 3v3, 4v4)
+	local n = A.team
+	local Ks = { 12, 10, 8, 6 }
+	local K = Ks[n]
 	local R = 25.5
+	local L = math.max(6, n * 2.6 + 1.5)          -- table length grows with team size
+	local skipR = (K <= 8) and 0.5 or 0.62
 	for k = 0, K - 1 do
 		local a = inward + (k + 0.5) * TAU / K
 		local skip = false
 		for _, g in ipairs(gaps) do
-			if angDiff(a, g[1]) < 0.62 then skip = true end
+			if angDiff(a, g[1]) < skipR then skip = true end
 		end
 		if not skip then
 			local tp = W(cx + math.cos(a) * R, fy, cz + math.sin(a) * R)
-			local cf = CFrame.lookAt(tp, centre)      -- local X = tangent, -Z = towards emblem
-			mk(par, "DuelTable", V3(6, 0.6, 4), cf * CFrame.new(0, 3.5, 0), PAL.BLACK, MAT.Marble)
-			mk(par, "DuelTableRim", V3(6.5, 0.5, 4.5), cf * CFrame.new(0, 3.1, 0), PAL.GOLD, MAT.Metal)
-			cyl(par, "DuelTableLeg", 1.6, 2.8, cf:PointToWorldSpace(V3(0, 1.4, 0)), PAL.GOLD, MAT.Metal)
-			cyl(par, "DuelTableBase", 3.4, 0.3, cf:PointToWorldSpace(V3(0, 0.15, 0)), PAL.BLACK, MAT.Metal)
-			mk(par, "DuelMat", V3(5.6, 0.06, 3.6), cf * CFrame.new(0, 3.83, 0), T.c1, MAT.Fabric, { CanCollide = false })
-			mk(par, "DuelMatLine", V3(0.12, 0.07, 3.6), cf * CFrame.new(0, 3.84, 0), PAL.GOLD, MAT.Metal, { CanCollide = false })
-			cyl(par, "DuelZone", 1.6, 0.05, cf:PointToWorldSpace(V3(0, 3.87, 0)), PAL.GOLD, MAT.Metal, { CanCollide = false })
+			local cf = CFrame.lookAt(tp, centre)      -- local X = long axis (tangent), -Z = towards emblem
+			mk(par, "DuelTable", V3(L, 0.6, 4), cf * CFrame.new(0, 3.5, 0), PAL.BLACK, MAT.Marble)
+			mk(par, "DuelTableRim", V3(L + 0.5, 0.5, 4.5), cf * CFrame.new(0, 3.1, 0), PAL.GOLD, MAT.Metal)
+			local legs = (L > 8) and { -L / 4, L / 4 } or { 0 }
+			for _, lx in ipairs(legs) do
+				cyl(par, "DuelTableLeg", 1.6, 2.8, cf:PointToWorldSpace(V3(lx, 1.4, 0)), PAL.GOLD, MAT.Metal)
+				cyl(par, "DuelTableBase", 3.4, 0.3, cf:PointToWorldSpace(V3(lx, 0.15, 0)), PAL.BLACK, MAT.Metal)
+			end
+			mk(par, "DuelMat", V3(L - 0.4, 0.06, 3.6), cf * CFrame.new(0, 3.83, 0), T.c1, MAT.Fabric, { CanCollide = false })
+			mk(par, "DuelMatLine", V3(L - 0.4, 0.07, 0.12), cf * CFrame.new(0, 3.84, 0), PAL.GOLD, MAT.Metal, { CanCollide = false })
+			cyl(par, "DuelZone", 1.4, 0.05, cf:PointToWorldSpace(V3(0, 3.87, 0)), PAL.GOLD, MAT.Metal, { CanCollide = false })
 			for _, s in ipairs({ -1, 1 }) do
-				for j = 1, 4 do
-					mk(par, "MonsterCard", V3(1.3, 0.04, 0.85), cf * CFrame.new(s * 2.1, 3.88, -1.4 + (j - 1) * 0.95),
-						(j % 2 == 1) and T.accent or T.c2, MAT.Neon, { CanCollide = false })
+				for i = 1, n do
+					local x = (i - (n + 1) / 2) * 2.6
+					-- two monster cards in front of each player
+					for c = -1, 1, 2 do
+						mk(par, "MonsterCard", V3(1.0, 0.04, 0.85), cf * CFrame.new(x + c * 0.55, 3.88, s * 1.2),
+							(c == -1) and T.accent or T.c2, MAT.Neon, { CanCollide = false })
+					end
+					-- chair directly across the table from its opponent
+					local cp = cf:PointToWorldSpace(V3(x, 0, s * 4.3))
+					local ccf = CFrame.lookAt(cp, cf:PointToWorldSpace(V3(x, 0, 0)))
+					mk(par, "DuelSeat", V3(2, 0.5, 2), ccf * CFrame.new(0, 1.75, 0), PAL.RED, MAT.Fabric, nil, "Seat")
+					mk(par, "ChairBack", V3(2, 2.4, 0.4), ccf * CFrame.new(0, 3.1, 0.9), PAL.RED, MAT.Fabric)
+					mk(par, "ChairBackTrim", V3(2.1, 0.2, 0.5), ccf * CFrame.new(0, 4.35, 0.9), PAL.GOLD, MAT.Metal, { CanCollide = false })
+					cyl(par, "ChairLeg", 1, 1.5, ccf:PointToWorldSpace(V3(0, 0.75, 0)), PAL.BLACK, MAT.Metal)
+					cyl(par, "ChairFoot", 1.8, 0.2, ccf:PointToWorldSpace(V3(0, 0.1, 0)), PAL.GOLD, MAT.Metal)
 				end
-				-- chair
-				local cp = cf:PointToWorldSpace(V3(s * 4.3, 0, 0))
-				local ccf = CFrame.lookAt(cp, tp)
-				mk(par, "DuelSeat", V3(2, 0.5, 2), ccf * CFrame.new(0, 1.75, 0), PAL.RED, MAT.Fabric, nil, "Seat")
-				mk(par, "ChairBack", V3(2, 2.4, 0.4), ccf * CFrame.new(0, 3.1, 0.9), PAL.RED, MAT.Fabric)
-				mk(par, "ChairBackTrim", V3(2.1, 0.2, 0.5), ccf * CFrame.new(0, 4.35, 0.9), PAL.GOLD, MAT.Metal, { CanCollide = false })
-				cyl(par, "ChairLeg", 1, 1.5, ccf:PointToWorldSpace(V3(0, 0.75, 0)), PAL.BLACK, MAT.Metal)
-				cyl(par, "ChairFoot", 1.8, 0.2, ccf:PointToWorldSpace(V3(0, 0.1, 0)), PAL.GOLD, MAT.Metal)
 			end
 		end
+	end
+
+	-- mode sign above the main entrance
+	do
+		local sp = W(cx + math.cos(inward) * 36.5, 22, cz + math.sin(inward) * 36.5)
+		local dirIn = V3(math.cos(inward), 0, math.sin(inward))
+		local sign = mk(par, "ModeSign", V3(14, 4, 0.6), CFrame.lookAt(sp, sp + dirIn), PAL.BLACK, MAT.Metal, { CanCollide = false })
+		label(sign, Enum.NormalId.Front, n .. "v" .. n .. "  " .. T.name, T.accent)
+		mk(par, "ModeSignTrim", V3(14.8, 4.8, 0.4), CFrame.lookAt(sp, sp + dirIn) * CFrame.new(0, 0, 0.3), PAL.GOLD, MAT.Metal, { CanCollide = false })
 	end
 
 	-- lamps on the floor rim
@@ -1025,10 +1045,10 @@ task.wait()
 
 local AX, AZ = CFG.ArenaX, CFG.ArenaZ
 local arenas = {
-	{ name = "Arena1_FireDragon",   x = -AX, z = -AZ, theme = THEMES.Fire },
-	{ name = "Arena2_IceDragon",    x =  AX, z = -AZ, theme = THEMES.Ice },
-	{ name = "Arena3_ShadowBeast",  x = -AX, z =  AZ, theme = THEMES.Shadow },
-	{ name = "Arena4_GoldenLight",  x =  AX, z =  AZ, theme = THEMES.Gold },
+	{ name = "Arena1_FireDragon",   x = -AX, z = -AZ, theme = THEMES.Fire, team = 1 },
+	{ name = "Arena2_IceDragon",    x =  AX, z = -AZ, theme = THEMES.Ice, team = 2 },
+	{ name = "Arena3_ShadowBeast",  x = -AX, z =  AZ, theme = THEMES.Shadow, team = 3 },
+	{ name = "Arena4_GoldenLight",  x =  AX, z =  AZ, theme = THEMES.Gold, team = 4 },
 }
 
 -- bridge directions leaving the plaza
